@@ -1,0 +1,80 @@
+# NetCDF schema of Level 3's data product, subset to what is needed for Background Concentration Estimation. 
+# This is a subset of level3_product_schema.yaml from the msat-level3 repository. 
+# If adding additional fields, they should come directly from level3_product_schema.yaml 
+dimensions:
+  lat: 0
+  lon: 0
+
+# Center latitude coordinates of each grid cell.
+lat:
+  type: float64
+  dimensions: [lat]
+  long_name: "latitude"
+  units: "degrees_north"
+
+# Center longitude coordinates of each grid cell.
+lon:
+  type: float64
+  dimensions: [lon]
+  long_name: "longitude"
+  units: "degrees_east"
+
+# The total 'layers' of level 2 pixels per grid cell.
+num_samples:
+  type: float32
+  dimensions: [lat, lon]
+  grid_mapping: "crs"
+  _FillValue: 0.0
+
+# XCH4 CO2 proxy with across-track bias correction applied on the XCH4 field and with ggg2020 scaling.
+xch4:
+  type: float32
+  dimensions: [lat, lon]
+  grid_mapping: "crs"
+  long_name: "retrieved column-averaged dry-air CH4 mole fraction"
+  standard_name: "dry_atmosphere_mole_fraction_of_methane"
+  units: "1e-9"
+  _FillValue: 1.0e+36
+
+apriori_data:
+  xch4:
+    type: float32
+    dimensions: [lat, lon]
+    long_name: "a priori column-averaged dry-air CH4 mole fraction"
+    standard_name: "dry_atmosphere_mole_fraction_of_methane"
+    units: "1e-9"
+    _FillValue: 1.0e+36
+
+  albedo_ch4band:
+    type: float32
+    dimensions: [lat, lon]
+    grid_mapping: "crs"
+    long_name: "clear-sky surface albedo derived from 1622nm radiance"
+    standard_name: "surface_albedo"
+    # Resources:
+    # - https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
+    # - https://cfconventions.org/Data/cf-conventions/cf-conventions-1.10/cf-conventions.pdf (section: 3.1 Units)
+    #   - "The conforming unit for quantities that represent fractions, or parts of a whole, is '1'."
+    units: "1"
+    valid_range: [0, 1]
+    _FillValue: 1.0e+36
+
+geolocation:
+  sza:
+    type: float32
+    dimensions: [lat, lon]
+    grid_mapping: "crs"
+    standard_name: "solar_zenith_angle"
+    units: "degrees"
+    valid_range: [0., 90.]
+    _FillValue: 1.0e+36
+
+co2proxy_fit_diagnostics:
+  ch4_averaging_kernel_mean:
+    type: float32
+    dimensions: [lat, lon]
+    grid_mapping: "crs"
+    long_name: "ch4 vertical column density averaging kernel, mass weighted mean"
+    units: "1"
+    _FillValue: 1.0e+36
+

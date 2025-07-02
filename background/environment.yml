@@ -1,0 +1,20 @@
+name: jacob_env
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+- python
+- mashumaro=3.16
+- scipy
+- numpy
+- matplotlib
+- xarray
+- pathlib
+- dataclasses
+- typing
+- strenum
+- numba
+- shapely=2.0
+- pyyaml
+- netCDF4
+- scikit-learn

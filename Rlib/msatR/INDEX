@@ -1,0 +1,305 @@
+ActivityAirglowLimbScan
+                        Calculate the MethaneSAT limb scan attitude
+ActivityCruise          Calculate the MethaneSAT cruise attitude
+ActivityDarkScan        Calculate the MethaneSAT dark calibration
+                        attitude
+ActivityDownlink        Calculate the MethaneSAT downlink attitude and
+                        ground station views.
+ActivityScan            Calculate the MethaneSAT scan attitude
+ActivitySchedule        Convert a spacecraft state to an activity
+                        schedule
+ActivityThrust          Calculate the MethaneSAT thrust attitude
+ActivityVicariousScan   Calculate the MethaneSAT vicarious calibration
+                        attitude
+AngleBetweenQuaternions
+                        Calculate the angle between two quaternions
+                        along the shortest axis
+AngularAccelerationFromQuaternions
+                        Calculate the angular acceleration of a time
+                        series of quaternions
+AngularVelocityFromQuaternions
+                        Calculate the angular velocity of a time series
+                        of quaternions
+ArgumentOfLatitude      Calculate the argument of latitude
+ArgumentOfPerigee       Calculate the argument of perigee
+ArlFilename             Generate the file name for a meteorological
+                        file in ARL format
+ArlHeader               Read the header of an NOAA ARL file
+ArlHour                 Find the time index in a NOAA ARL
+                        meteorological file
+AscendingNodeVector     Calculate the line of nodes vector (ascending)
+AttitudeFromXactCommand
+                        Determine the spacecraft attitude from a BCT
+                        XACT command
+AxisBetweenQuaternions
+                        Calculate the axis of rotation between two
+                        quaternions
+BasisVectorsFromPitchRollYaw
+                        Convert an attitude described in Tait-Bryan
+                        angles (pitch, then roll, then yaw) to basis
+                        vectors
+BasisVectorsFromQuaternions
+                        Convert an attitude described in quaternions to
+                        rotation matrices
+BasisVectorsFromRotationMatrices
+                        Convert an attitude described in rotation
+                        matrices to basis vectors
+BasisVectorsFromRotationVectors
+                        Convert an attitude described in rotation
+                        vectors to basis vectors
+BinaryFromHex           Convert a hexadecimal character string to
+                        binary
+CalculateDownlinkData   Calculate the data budgeting for a downlink
+                        activity
+CalculateScanData       Calculate the data budgeting for a scan
+                        activity
+CameraModel             Compute pixel angles from camera model
+CheckConstraints        Check constraints for a spacecraft attitude
+                        profile.
+ClipDemToSpacecraftState
+                        Restrict a digital elevation map to reduce its
+                        size for orthorectification
+ClipRasterBuffer        Clip a raster to a buffer around a point
+ComponentAttitudes      Calculate spacecraft component vectors from
+                        spacecraft attitude
+DataManagementSchedule
+                        Convert a spacecraft state to a data management
+                        file
+DownloadARL             Download a meteorological file in ARL format
+                        from the NOAA ARL Archive
+EccentricityVector      Calculate the eccentricity vector
+EcefFromEci             Transform Earth-Centered Inertial coordinates
+                        to Earth-Centered Earth-Fixed
+EcefFromGeodetic        Transform geodetic coordinates to
+                        Earth-Centered Earth-Fixed
+EciFromEcef             Transform Earth-Centered Earth-Fixed
+                        coordinates to Earth-Centered Inertial
+EciFromGeodetic         Transform Geodetic coordinates to
+                        Earth-Centered Inertial
+EciFromRightAscensionDeclination
+                        Transform right ascension, declination, and
+                        distance to Earth-centered inertial
+Eclipse                 Find out when the spacecraft is in eclipse.
+FindInputFile           Find the latest version input files on the ops
+                        product repository
+FindOutputFile          Generate a new version of output file on the
+                        ops product repository
+FlatStiltReceptorListFromGfs
+                        Generate a STILT column receptor list with
+                        footprint weights - GFS Version
+FlatStiltReceptorListFromHrrr
+                        Generate a STILT column receptorlist with
+                        footprint weights - HRRR Version
+GeocentricFromEcef      Transform Earth-Centered Earth-Fixed
+                        coordinates to geocentric coordinates on the
+                        sphere
+GeodeticFromEcef        Transform Earth-Centered Earth-Fixed
+                        coordinates to geodetic coordinates
+GeodeticFromEci         Transform Earth-Centered Inertial coordinates
+                        to Geodetic
+GetEopCelestrak         Download and process Earth Orientation
+                        Parameters (EOP) from Celestrak
+GetEopIERS              Download and process Earth Orientation
+                        Parameters (EOP) from IERS
+HexFromBinary           Convert a binary character string to
+                        hexidecimal
+IntersectEllipsoid      Calculate the intersection of a ray with an
+                        ellipsoid
+IntersectSphere         Calculate the intersection of a ray with a
+                        sphere
+Iso8601FromUtc          Convert UTC dates in POSIX format to UTC dates
+                        in ISO8601 format
+JulianFromModifiedJulian
+                        Convert modified Julian dates to Julian dates
+JulianFromUtc           Convert UTC dates in POSIX format to Julian
+                        dates
+LocalTangentPlane       Calculate the local tangent plane to the WGS84
+                        ellipsoid
+LocalVerticalLocalHorizontal
+                        Calculate the local-vertical local-horizontal
+                        (LVLH) basis
+LunarEphemeris          Compute the apparent position of the moon in
+                        meters Earth-Centered Inertial
+MeanMotion              Calculate the mean motion of an orbit from the
+                        altitude and eccentricity
+ModifiedJulianFromJulian
+                        Convert Julian dates to modified Julian dates
+ModifiedJulianFromUtc   Convert UTC dates in POSIX format to modified
+                        Julian dates
+NcdfFromArl_GFS0p25     Convert a GFS0p25 NOAA ARL file to NetCDF
+NcdfFromArl_HRRR        Convert a HRRR NOAA ARL file to NetCDF
+OrthorectifyAntenna     Orthorectify the X-band antenna to the WGS84
+                        ellipsoid for plotting
+OrthorectifyLimb        Orthorectify the center o the instrument array
+                        to a point on the limb
+OrthorectifyScan        Orthorectify scans to rectangular pixels, with
+                        the option to save to NetCDF
+OrthorectifyScanCenters
+                        Orthorectify scans to pixel centers
+OrthorectifyScanWGS84   Orthorectify scans to rectangular pixels on the
+                        WGS84 Ellipsoid
+OrthorectifyStiltReceptorListFromGfs
+                        Generate a STILT column receptorlist with
+                        footprint weights - GFS Version
+OrthorectifyStiltReceptorListFromHrrr
+                        Generate a STILT column receptorlist with
+                        footprint weights - HRRR Version
+PitchRollYawFromBasisVectors
+                        Convert an attitude described in basis vectors
+                        to Tait-Bryan angles (pitch, then roll, then
+                        yaw)
+PitchRollYawFromQuaternions
+                        Convert an attitude described in quaternions to
+                        rotation matrices
+PitchRollYawFromRotationMatrices
+                        Convert an attitude described in rotation
+                        matrices to Tait-Bryan angles (pitch, then
+                        roll, then yaw)
+PitchRollYawFromRotationVectors
+                        Convert an attitude described in rotation
+                        vectors to Tait-Bryan angles (pitch, then roll,
+                        then yaw)
+QuaternionEcefFromEci   Rotate a quaternion to ECEF from ECI using q_ei
+                        (saved in spacecraft state)
+QuaternionEciFromEcef   Rotate a quaternion to ECI from ECEF using q_ei
+                        (saved in spacecraft state)
+QuaternionInvert        Invert quaternions by the row of a matrix or
+                        data.frame
+QuaternionMultiply      Multiply quaternions by the row of a matrix or
+                        data.frame
+QuaternionRectify       Ensure that a time series of quaternions has a
+                        consistent convention
+QuaternionRotateVector
+                        Apply a quaternion rotation to a vector in
+                        3-space
+QuaternionsFromBasisVectors
+                        Convert an attitude described in basis vectors
+                        to quaternions
+QuaternionsFromPitchRollYaw
+                        Convert an attitude described in Tait-Bryan
+                        angles (pitch, then roll, then yaw) into
+                        quaternions
+QuaternionsFromRotationMatrices
+                        Convert an attitude described in rotation
+                        matrices to quaternions
+QuaternionsFromRotationVectors
+                        Convert an attitude described in rotation
+                        vectors to rotation matrices
+ReadCcsdsOem            Read a CCSDS OEM File
+ReadCollectionId        Read a collection ID
+ReadGroundConfiguration
+                        Read a groundstations file
+ReadTle                 Convert a NORAD Two-Line-Element character
+                        string to a named list
+RevNumber               Count revolution number
+RightAscensionDeclinationFromEci
+                        Transform Earth-centered inertial to right
+                        ascension, declination, and distance
+RotationMatricesFromBasisVectors
+                        Convert an attitude described in basis vectors
+                        to rotation matrices
+RotationMatricesFromPitchRollYaw
+                        Convert an attitude described in Tait-Bryan
+                        angles (pitch, then roll, then yaw) into
+                        rotation matrices
+RotationMatricesFromQuaternions
+                        Convert an attitude described in quaternions to
+                        rotation matrices
+RotationMatricesFromRotationVectors
+                        Convert an attitude described in rotation
+                        vectors to rotation matrices
+RotationMatrices_EcefFromEci
+                        Calculate rotation matrices that transform
+                        vectors from Earth-Centered Inertial to
+                        Earth-Centered Earth-Fixed
+RotationMatrices_EciFromEcef
+                        Calculate rotation matrices that transform
+                        vectors from Earth-Centered Earth-Fixed to
+                        Earth-Centered Inertial
+RotationVectorsFromBasisVectors
+                        Convert an attitude described in basis vectors
+                        to rotation vectors
+RotationVectorsFromPitchRollYaw
+                        Convert an attitude described in Tait-Bryan
+                        angles (pitch, then roll, then yaw) to rotation
+                        vectors
+RotationVectorsFromQuaternions
+                        Convert an attitude described in quaternions to
+                        rotation vectors
+RotationVectorsFromRotationMatrices
+                        Convert an attitude described in rotation
+                        matrices to rotation vectors
+RotationVectorsTimeDerivative
+                        Calculate the time derivatives of a rotation
+                        vector.
+SecondsSinceJ2000       Compute the number of seconds since J2000 from
+                        UTC time
+SlewIntoAttitude        Restrict an attitude profile to allow a slew
+                        from cruise
+SlewRampCoastRamp       Compute a fast near-optimal slew.
+SolarEphemeris          Compute the apparent position of the sun in
+                        meters Earth-Centered Inertial
+SolarTime               Compute the solar time from the longitude of
+                        the sun and spacecraft
+SpacecraftState         Initialize a spacecraft state with a
+                        pre-computed spacecraft ephemeris
+SpacecraftStateAddActivity
+                        Update the spacecraft state based on an
+                        attitude profile of an activity
+SpacecraftStateFromEphemerides
+                        Initialize a spacecraft state to pre-computed
+                        spacecraft, sun, and moon
+SpecificAngularVelocityVector
+                        Calculate the specific angular velocity vector
+StiltIdFromGeodetic     Write STILT receptor file name from geodetic
+                        receptor location
+SunSynchronousInclination
+                        Calculate the inclination required for a
+                        sun-synchronous orbit
+TaiFromUtc              Compute seconds since 2000-01-01 from UTC
+                        (Universal Coordinated Time)
+TargetBuildAimpoints    Calculate MethaneSAT target aim points
+TargetBuildDem          Build a local DEM (digital elevation map) as a
+                        data.frame for orthorectification
+TargetBuildGfsPoints    Find the points in a GFS (Global Forecast
+                        System) grid that fall inside of a target
+TargetBuildPolygons     Calculate the geodetic coordinates of a
+                        MethaneSAT target
+TargetBuildRds          Build the MethaneSAT target book rds file
+TrueAnomaly             Calculate the true anomaly
+UtcFromJulian           Convert Julian dates to UTC dates in POSIX
+                        format
+UtcFromModifiedJulian   Convert modified Julian dates to UTC dates in
+                        POSIX format
+UtcFromTai              Compute UTC (Universal Coordinated Time) from
+                        seconds since 2000-01-01
+UtcFromYyyyDoy          Convert a year and fractional day of the year
+                        to a UTC dates in POSIX format
+WriteCcsdsOem           Write a CCSDS OEM File
+WriteCollectionId       Generate a collection ID
+XactCommandFromAttitude
+                        Determine the qTARGETwrtREF component of a BCT
+                        XACT command
+ZenithAndAzimuthAngles
+                        Calculate the zenith and azimuth angle of a
+                        object from the perspective of an observer on
+                        the surface of the Earth
+glint_lut               Glint look-up table A table of glint glint
+                        irradiance (sr-1) values as a function of wind
+                        speed (m/s), relative azimuth angle (degrees),
+                        viewing zenith angle (degrees), and solar
+                        zenith angle (degrees).
+ground_configuration    Ground Configuration The ground configuration
+                        stored as package data. This data is stored in
+                        a json file that is shared on the MethaneSAT
+                        Ops Product Repository. It contains information
+                        about the ground stations, the location of bus
+                        components, thermal and agility constraints,
+                        scanning parameters, instrument parameters,
+                        data management parameters, and downlink
+                        parameters.
+orbit_examples          Orbit Examples Typical orbits for finding the
+                        scan azimuth as a function of latitude.
+                        Includes versions for transporter 8 and
+                        transporter 9 potential launches. Spans
+                        latitudes on the sun-side only.

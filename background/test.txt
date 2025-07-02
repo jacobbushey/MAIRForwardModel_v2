@@ -1,0 +1,368 @@
+
+
+# Needed to install mashumaro version 3.14 to fix a dependency issue
+# Need to install shapely 2.0 to fix a dependency issue
+  # but this wasn't working with some "pinning" errors with python v 3.9?
+
+from scipy.ndimage import uniform_filter, binary_fill_holes
+from sklearn.cluster import DBSCAN
+from collections import Counter
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+from dataclasses import dataclass
+from enum import auto
+from typing import Optional
+from mashumaro.mixins.json import DataClassJSONMixin
+from strenum import StrEnum
+
+from netCDF4 import Dataset
+import os
+
+from data_types import (
+    BackgroundCalculationAnalytics,
+    BackgroundCalculationOptions,
+    BackgroundCalculationResults,
+    BackgroundCalculationMethod
+)
+from negative_reflection import negative_reflection
+from plotting import plot_zsigma_overview
+
+from z_sigma import nan_aware_local_std
+from z_sigma import get_largest_clusters
+from z_sigma import _get_binary_sign_mask
+from z_sigma import z_sigma_fit
+
+from numba import njit
+
+from fit_std import global_std_fit, local_std_fit
+
+
+from api import estimate_background_for_l3
+
+
+
+file2read = Dataset("/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/Inputs/L2/MSAT_196_Canterbury_2/MSAT_L2_c09030C40_p1399_v03004000_20250320T020530Z_020602Z.nc")
+
+group = file2read.groups["co2proxy_fit_diagnostics"]
+var = group.variables["ch4_averaging_kernel_mean"]
+ak = var[:]
+
+type(ak)
+file2read.close()
+
+
+
+
+file2read = Dataset("/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/Inputs/L3/MSAT_196_09030C40/regrid_t196_20250320_c09030C40_p1399_45m_MSAT_L3_45m_c09030C40_p1399_v01011000_20250320T020530Z_020602Z.nc")
+
+var = file2read.variables["xch4"]
+xch4 = var[:]
+
+group = file2read.groups["co2proxy_fit_diagnostics"]
+var = group.variables["ch4_averaging_kernel_mean"]
+
+mean_ak = var[:]
+
+
+group = file2read.groups["apriori_data"]
+var = group.variables["xch4"]
+
+xch4_apriori = var[:]
+
+apriori_enhancement = (xch4 - xch4_apriori) / mean_ak
+
+file2read.close()
+
+
+
+# Create the options object
+options = BackgroundCalculationOptions(
+    method=BackgroundCalculationMethod.METHOD_A,  # use the actual enum member name
+    window_size=5,
+    threshold=0.1
+    # fill in any other required fields
+)
+
+# Call the function
+result = z_sigma_fit(ch4_offset, mean_ak, options)
+
+
+path_to_file = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/Inputs/L3/MSAT_196_09030C40/regrid_t196_20250320_c09030C40_p1399_45m_MSAT_L3_45m_c09030C40_p1399_v01011000_20250320T020530Z_020602Z.nc"
+
+
+# another one
+path_to_file = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/Inputs/L3/MSAT_196_09230C40/regrid_t196_20250321_c09230C40_p1388_45m_MSAT_L3_45m_c09230C40_p1388_v01011000_20250321T021106Z_021138Z.nc"
+
+  mean = -1.9432793 (very close! maybe there's some sort of ensemble I need?)
+  
+  method=BackgroundCalculationMethod.ZSIGMA,
+    num_samples_threshold=0.50,
+    search_start=None,
+    search_stop=None,
+    search_steps=200,
+    region_size=20,
+    region_spacing=10,
+    dbscan_epsilon=1.5,
+    dbscan_min_samples=6,
+    dbscan_top_n=3,
+    max_iterations=10,
+    dbscan_max_cluster_size=5e5,
+    dbscan_min_cluster_size=1e4,
+    top_bgs_quantile=0.1,
+    plot_dir=None,
+    plot_name=None
+
+
+
+# Step 2: Create an options object
+options = BackgroundCalculationOptions(
+    method=BackgroundCalculationMethod.ZSIGMA,
+    num_samples_threshold=0.50,
+    search_start=None,
+    search_stop=None,
+    search_steps=200,
+    region_size=20,
+    region_spacing=10,
+    dbscan_epsilon=1.5,
+    dbscan_min_samples=6,
+    dbscan_top_n=5,
+    max_iterations=10,
+    dbscan_max_cluster_size=5e5,
+    dbscan_min_cluster_size=1e4,
+    top_bgs_quantile=0.1,
+    plot_dir="/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/MSATForwardModel/background",
+    plot_name="TEST_MSAT_196_Canterbury_2"
+)
+
+
+
+# For NZ the whole scene is only 22266 (2.2e4) pixels
+# need to max max cluster size smaller
+
+options = BackgroundCalculationOptions(
+    method=BackgroundCalculationMethod.ZSIGMA,
+    num_samples_threshold=0.50,
+    search_start=None,
+    search_stop=None,
+    search_steps=200,
+    region_size=20,
+    region_spacing=10,
+    dbscan_epsilon=1.5,
+    dbscan_min_samples=6,
+    dbscan_top_n=5,
+    max_iterations=10,
+    dbscan_max_cluster_size=1e4,
+    dbscan_min_cluster_size=5e2,
+    top_bgs_quantile=0.1,
+    plot_dir="/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/MSATForwardModel/background",
+    plot_name="TEST_2_MSAT_196_Canterbury_2"
+)
+
+# Part of why it was so fast before is that it was just one big cluster!
+  # this was mistaken, I was misreading the figure
+  # actually it's not clear if it's the blue or the yellow that's the cluster
+
+#dbscan_max_cluster_size=1e4,
+#dbscan_min_cluster_size=5e2,
+  # this was still all just one big cluster, but now more sparse
+  # mean = -7.81514
+
+# now adding dbscan = 3, and it starts to take much longer to run
+  # mean = -10.399281
+
+# min_samples = 12 produced an error
+  # IndexError: list index out of range
+
+# min_samples = 8
+  # mean = -6.5230713
+
+# min_samples = 3
+  # mean = -8.461174
+
+# max_cluster_size = 5e6
+  # mean = -4.907982
+
+# dbscan_epsilon = 0.5
+  # returns an error: IndexError: list index out of range
+
+
+
+
+
+# region_size = 10
+#region_spacing = 1000 (runs in 5 seconds with no errors), mean = -17.85407
+#region_spacing = 100 runs in 5 minutes, no errors, same mean, larger stdev
+#mean offset is not sensitive to region_spacing
+#and the same backgrounds were tested in 'analytics'
+
+#set region_spacing = 1000, region_size = 20, mean = -22.263412
+#larger region size = lower offset?
+
+# region_size = 5, mean = -14.965193
+
+# region_size = 1, mean = -16.333609
+
+# so the change is nonlinear
+# and it's possible that there could be covariation between these two parameters
+
+#region_size = 1, region_spacing = 100, mean = -14.813147
+# so at lower region sizes the results are sensitive
+# maybe it has something to do with the ratio between region size and region spacing
+# smaller region_size runs more quickly too
+
+# region_size = 1, region_spacing = 10, mean = 
+  # didn't let it finish running
+
+# region_size = 10, region_spacing = 100, method = z_sigma, mean = -13.306435 
+  # will this method be faster or slower I wonder?
+  # it produces errors from z_sigma.py, so we know it's working
+  # comment in api says "z_sigma requires region size to be set"
+  # which implies that the normality method doesn't
+
+# region_size = 10, region_spacing = 1000, method = z_sigma, mean = same
+  # at large region size, not sensitive to region spacing (?)
+
+#region_size = 20, region_spacing = 1000, mean = -4.907982 (now we're getting somewhere!)
+  # trying many options in case the trends of this method
+  # dont' go in the same direction as for the normality method
+
+# XX REGION_SPACING ISN'T USED
+
+# region_size = 40, region_spacing = 1000, mean = -6.200054
+  # so it's definitely non-linear
+
+# region_size = 20, region_spacing = 100, mean = -4.907982 (as above, not sensitive to region_spacing parameter)
+  # this makes sense, the region_size parameter creates an averaging kernel of dimension size x size
+  # and Marvin told me 20
+    # Guess Josh was using Manhattan distance, so that got me confused (?)
+
+# region_size = 20, region_spacing = 20, mean = -4.907982 
+  # how does it do this without a central pixel?
+  # really insensitive! Then why is it a little wrong?
+
+# region_size = 20, region_spacing = 10, mean = -4.907982
+  # seems like region_size is the main determinant of how long it takes?
+  # or is that all in my head?
+
+# region_size = 20, region_spacing = 1, mean = -4.907982
+
+# maybe I need to try playing with some other parameters?
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.75, mean = -5.173664
+  # so not helpful
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.50, max_iterations = 10, mean = -4.907982
+  # guess it'll take 10x as long now?
+
+# XX MAX_ITERATIONS_ISN'T USED
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.50, max_iterations = 20, mean = -4.907982
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.25, max_iterations = 10, mean = -4.9706345
+  # maybe num_samples threshold should be different for different retrievals
+  # ex. lots of holes in NZ retrievals!
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.25, max_iterations = 10, dbscan_min_cluster_size = 1e3,
+  #mean = -4.9706345
+  # nothing seems to budge this parameter
+
+# XX DBSCAN_MIN_CLUSTER_SIZE ISN'T USED
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.25, max_iterations = 10, dbscan_min_cluster_size = 1e2,
+  #mean = -4.9706345 
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.50, max_iterations = 10, dbscan_min_cluster_size = 1e4,
+  # dbscan_epsilon = 3 (it's usually 1.5)
+  #mean = -4.907982
+
+# XX DBSCAN_EPSILON ISN'T USED
+# PRESUMABLY THEN NONE OF THE DBSCAN PARAMETERS ARE USED
+
+# BUT DBSCAN AND MAX_ITERATIONS ARE BOTH ARGUMENTS TO Z_SIGMA_FIT
+
+# ALL OF THEM ARE, SO WHY DONT' THEY BUDGE ANYTHING?
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.50, max_iterations = 10, dbscan_min_cluster_size = 1e4,
+  # dbscan_epsilon = 1.5, top_bgs_quantile = 0.50 
+  #mean = -4.907982
+
+# region_size = 20, region_spacing = 10, numsamples_threshold = 0.50, max_iterations = 10, dbscan_min_cluster_size = 1e4,
+  # dbscan_epsilon = 1.5, top_bgs_quantile = 1
+  #mean = -4.907982
+  # at least the results are robust - but geez it's kind of annoying!
+
+  # dbscan_min_samples and dbscan_top_n haven't been swept yet
+
+XX DBSCAN_MIN_SAMPLES DIDN'T MATTER
+
+XX DBSCAN_TOP_N DIDNT' MATTER
+
+# Explanation: if the largest cluster stays the larges, then the results won't change.
+# change max_cluster_size?
+
+# Putting db_scan_top_n = 5 (default value in script)
+
+# XX DBSCAN_MAX_CLUSTER_SIZE_DIDN'T MATTER
+# NEED TO LOOK AT DIAGNOSTIC PLOTS
+result, analytics = z_sigma_fit(apriori_enhancement, mean_ak, options)
+
+
+
+
+
+result, analytics = estimate_background_for_l3(path_to_file, options)
+
+
+
+np.mean(apriori_enhancement)
+np.max(apriori_enhancement)
+np.min(apriori_enhancement)
+np.median(apriori_enhancement)
+  # masked?
+
+
+
+class BackgroundCalculationOptions(DataClassJSONMixin):
+    # Technique to use.
+    method: BackgroundCalculationMethod = BackgroundCalculationMethod.NORMALITY
+
+    # Filtering L3 data parameters
+    num_samples_threshold: float = 0.5
+    # Optional parameters that can fix the bg search space.
+    search_start: Optional[float] = None
+    search_stop: Optional[float] = None
+    search_steps: int = 200
+
+    # If doing a Convolution, these should be filled.
+    region_size: Optional[int] = None  # How large in Manhattan distance radius is the region?
+    region_spacing: Optional[int] = None  # How many pixels should we leave between region centers?
+
+    # Options for Z-Sigma test
+    # These are default parameters for the DBSCAN clustering algorithm.
+    dbscan_epsilon: Optional[float] = 1.5
+    dbscan_min_samples: Optional[int] = 6
+    dbscan_top_n: Optional[int] = 3
+    # These are parameters for iterative corrections if unreasonable clusters sizes
+    max_iterations: int = 1  # set to 1 to turn iterations off // recommend 10-20
+    # For 45m L3 pixels
+    dbscan_max_cluster_size: Optional[int] = 5e5  # Typical largest cluster size for desert scenes
+    dbscan_min_cluster_size: Optional[int] = 1e4  # Obvious background underestimations cluster size
+    # Upper quantile limit to use when choosing backgrounds with normalized sigma
+    # close to 1 to compute std for the method
+    top_bgs_quantile: Optional[int] = 0.1
+
+    plot_dir: Optional[str] = None  # Directory to save plots to
+    plot_name: Optional[str] = None  # Name of the plot
+
+
+
+
+
+
+
+
+
+
+
+
