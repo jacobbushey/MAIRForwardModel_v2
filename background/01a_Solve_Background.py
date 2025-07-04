@@ -94,13 +94,23 @@ path_to_geojson = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/MSAT
 
 
 
+
+
+
+
+
 # Loop through all of these
 # make the output figure title the filename
 path_to_file = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L3/RF06_Permian/MethaneAIR_L3_segment_20210806T161742_20210806T162243_dpp_ak.nc"
 
+path_to_file = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L3/RF06_Permian/MethaneAIR_L3_segment_20210806T161742_20210806T162243_dpp.nc"
+
+
+
 filepath = '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L3/RF06_Permian/'
 
-file_list = ['MethaneAIR_L3_segment_20210806T162243_20210806T162745_dpp_ak.nc',
+file_list = ['MethaneAIR_L3_segment_20210806T161742_20210806T162243_dpp_ak.nc',
+    'MethaneAIR_L3_segment_20210806T162243_20210806T162745_dpp_ak.nc',
     'MethaneAIR_L3_segment_20210806T162745_20210806T163247_dpp_ak.nc',
     'MethaneAIR_L3_segment_20210806T163247_20210806T163748_dpp_ak.nc',
     'MethaneAIR_L3_segment_20210806T163748_20210806T164250_dpp_ak.nc',
@@ -128,24 +138,82 @@ file_list = ['MethaneAIR_L3_segment_20210806T162243_20210806T162745_dpp_ak.nc',
     'MethaneAIR_L3_segment_20210806T182553_20210806T183024_dpp_ak.nc']
     # find a way to retrieve this list according to 'ak.nc'
 
+results = []
+results.append(['Segment_Name', 'Mean', 'SD'])
+    # set the column headers so you don't lose the first row of data as headers
+
 for i in range(len(file_list)):
+    # remember, it's zero indexing!
     file_tick = file_list[i]
     filepath_tick = filepath + file_tick
 
-    plot_name_tick = 'TEST' + file_tick
+    x = file_tick.split(".")
+    plot_name_tick = 'TEST_' + x[0]
+
+    print(i)
+    print(plot_name_tick)
 
     options = BackgroundCalculationOptions(
         method=BackgroundCalculationMethod.ZSIGMA,
         num_samples_threshold=0.50,
         region_size=20,
-        region_spacing=20,
+        region_spacing=20,  # I thought this parameter didn't get used? Still has to be set I guess
     #    dbscan_max_cluster_size=5e5,
     #    dbscan_min_cluster_size=1e4,
+    #    dbscan_max_cluster_size=5e3,  # this doesn't seem to make any difference
+    #    dbscan_min_cluster_size=1e2,
         plot_dir="/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/MAIRForwardModel_v2/background",
         plot_name=plot_name_tick
     )
 
-    result, analytics = estimate_background_for_l3(path_to_file, options)
+    # changing the local_valid_fraction threshold didn't change anything
+    # changing num_samples_threshold didn't change anything about this (why?)
+
+    # WHY AM I GETTING MORE ERRORS AND A DIFFERENT OFFSET TODAY? THE FILE IS THE SAME RIGHT?
+    # DIFFERENCE IN WHETHER I CHANGED SZA OR NOT?
+
+    result, analytics = estimate_background_for_l3(filepath_tick, options)
+    # result, analytics = estimate_background_for_l3(path_to_file, options)
+
+    #result_mean = result.mean
+    #result_std = result.std
+
+    result_name_tick = plot_name_tick + '_result.csv'
+    analytics_name_tick = plot_name_tick + '_analytics.csv'
+
+    result_new = [result.mean, result.std]
+    analytics_new = [
+        [analytics.background_candidates],
+        [analytics.background_candidate_statistic],
+        [analytics.background_candidate_p_values],
+        [analytics.background_candidate_calculated_standard_deviation],
+        [analytics.mean_albedo],
+        [analytics.mean_sza],
+        [analytics.cluster_densities],
+        [analytics.cluster_sizes],
+        [analytics.largest_cluster_sizes],
+        [analytics.best_bgs]
+    ]
+
+
+    with open(result_name_tick, mode = 'w', newline = '') as f:
+        writer = csv.writer(f)
+        writer.writerow(result_new)
+
+    with open(analytics_name_tick, mode = 'w', newline = '') as f:
+        writer = csv.writer(f)
+        writer.writerow(analytics_new)
+
+    results.append([file_tick, result.mean, result.std])
+
+
+with open('RF06_background_results.csv', mode = 'w', newline = '') as f:
+    writer = csv.writer(f)
+    writer.writerows(results)
+
+    #with open('data.csv', mode='w', newline='') as file:
+    #writer = csv.writer(file)
+    #writer.writerows(data)
 
 
 # CURRENTLY NO CROPPING WITH GEOJSONS IMPLEMENTED FOR MAIR
@@ -180,8 +248,8 @@ options = BackgroundCalculationOptions(
     num_samples_threshold=0.50,
     region_size=20,
     region_spacing=20,
-    dbscan_max_cluster_size=5e5,
-    dbscan_min_cluster_size=1e4,
+#    dbscan_max_cluster_size=5e5,
+#    dbscan_min_cluster_size=1e4,
     plot_dir="/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/MAIRForwardModel_v2/background",
     plot_name="TEST_MethaneAIR_L3_segment_20210806T161742_20210806T162243_dpp.nc"
 )

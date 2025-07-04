@@ -85,6 +85,8 @@ for(file in file_list){
   xch4 <- ncvar_get(nc_data, varid = "xch4")
 
   ak_data <- xch4
+  ak_data[ , ] <- 1    # consider replacing this with the avg ak for the whole scene?
+                       # or at least for the whole segment?
 
   # Get dimension objects
   lon_dim <- nc_data$dim[["lon"]]
