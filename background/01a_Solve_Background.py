@@ -15,6 +15,7 @@ import csv
 from numba import njit
 import geojson
 import shapely
+import xarray as xr
 
 # Needed to install mashumaro version 3.14 to fix a dependency issue
 # Need to install shapely 2.0 to fix a dependency issue
@@ -139,7 +140,7 @@ file_list = ['MethaneAIR_L3_segment_20210806T161742_20210806T162243_dpp_ak.nc',
     # find a way to retrieve this list according to 'ak.nc'
 
 results = []
-results.append(['Segment_Name', 'Mean', 'SD'])
+results.append(['segment_name', 'time_coverage_start', 'time_coverage_end', 'mean', 'sd'])
     # set the column headers so you don't lose the first row of data as headers
 
 for i in range(len(file_list)):
@@ -195,6 +196,10 @@ for i in range(len(file_list)):
         [analytics.best_bgs]
     ]
 
+    nc_file = Dataset(filepath_tick, 'r')
+    time_coverage_start = nc_file.time_coverage_start
+    time_coverage_end = nc_file.time_coverage_end
+    nc_file.close()
 
     with open(result_name_tick, mode = 'w', newline = '') as f:
         writer = csv.writer(f)
@@ -204,7 +209,7 @@ for i in range(len(file_list)):
         writer = csv.writer(f)
         writer.writerow(analytics_new)
 
-    results.append([file_tick, result.mean, result.std])
+    results.append([file_tick, time_coverage_start, time_coverage_end, result.mean, result.std])
 
 
 with open('RF06_background_results.csv', mode = 'w', newline = '') as f:
