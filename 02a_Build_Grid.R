@@ -38,7 +38,7 @@ file_config <- command_args[1]
  
 config <- jsonlite::read_json(paste0('configs/', file_config))
 
-# config <- jsonlite::read_json('configs/config_MSAT_005_Permian.json') 
+# config <- jsonlite::read_json('configs/config_RF06_Permian.json') 
 
 # Set directories 
  
@@ -48,11 +48,11 @@ output.dir <- paste0(
         config$scene$name, '/'
 )
 
-obs.filepath <- paste0(
-       config$dir_root,
-       config$inputs$l3$dir_l3,
-       config$input$l3$filename_l3
-)
+#obs.filepath <- paste0(
+#       config$dir_root,
+#       config$inputs$l3$dir_l3,
+#       config$input$l3$filename_l3
+#)
 
 name <- paste0(
         config$scene$name
@@ -94,18 +94,30 @@ l3.dir <- paste0(
   config$inputs$l3$filename_l3
 )
 
+l3.mosaic.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3_mosaic$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
 scene.name <- paste0(
         config$scene$name
 )
 
 
 l2.dir <- paste0(
-  '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/Inputs/L2/',
+  '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L2/',
   config$scene$name
 )
 
+#segment.dir <- paste0(
+#        config$dir_root,
+#        config$inputs$l3$dir_l3,
+#        config$input$l3$filename_l3
+#)
+
 # Set variables of interest
-file <- list.files(path = l3.dir, pattern = "(.nc)$")
+l3.mosaic.file <- list.files(path = l3.mosaic.dir, pattern = "(.nc)$")
 
 xres <- paste0(
         config$inversion$res_deg
@@ -127,7 +139,8 @@ config_offset <- paste0(
 
 # XX 2025_05_21
 numsamples_threshold <- 0.75
-resolution           <- 0.02  # resolution of the observations, not the inversion
+#resolution           <- 0.02  # resolution of the observations, not the inversion
+resolution           <- 0.01
 #resolution           <- 0.05
 valid_fraction       <- 0.5
 
@@ -144,9 +157,9 @@ inflow.dist <- paste0(
         config$flexpart$inflow_dist
 ) %>% as.numeric()
 
-setwd(l3.dir)
+setwd(l3.mosaic.dir)
 # Open the data file and save the contents to a text file
-nc_data <- nc_open(file)
+nc_data <- nc_open(l3.mosaic.file)
 
 setwd(output.dir)
 
@@ -161,54 +174,38 @@ setwd(output.dir)
 # [2] Retrieve variables from the Mosaic ----------------------------------------------------
 
 # Retrieve the variables of interest
-msat.lon <- ncvar_get(nc_data, "lon")
-msat.lat <- ncvar_get(nc_data, "lat")
-msat.p0 <- ncvar_get(nc_data, "apriori_data/surface_pressure")
-msat.tau.start <- lubridate::as_datetime(ncatt_get(nc_data, varid = 0, attname = "time_coverage_start")$value, tz = 'UTC')
-msat.tau.end <- lubridate::as_datetime(ncatt_get(nc_data, varid = 0, attname = "time_coverage_end")$value, tz = 'UTC')
+mair.lon <- ncvar_get(nc_data, "lon")
+mair.lat <- ncvar_get(nc_data, "lat")
+mair.p0 <- ncvar_get(nc_data, "apriori_data/surface_pressure")
+mair.tau.start <- lubridate::as_datetime(ncatt_get(nc_data, varid = 0, attname = "time_coverage_start")$value, tz = 'UTC')
+mair.tau.end <- lubridate::as_datetime(ncatt_get(nc_data, varid = 0, attname = "time_coverage_end")$value, tz = 'UTC')
 
-#msat.time.int <- interval(start = msat.tau.start, end = msat.tau.end)
-#msat.time.length <- lubridate::time_length(msat.time.int, unit = "second")
-#msat.mid.time <- msat.tau.start + (msat.time.length / 2)
-
-# Retrieve the relevatn vcd data
-air.vcd <- ncvar_get(nc_data, "apriori_data/air_vcd")
-air.vcd[air.vcd > (10^35)] <- NA    # change the default filler value to NA
-h2o.vcd <- ncvar_get(nc_data, "h2o_w2_fit_diagnostics/bias_corrected_h2o_vcd")
-h2o.vcd[h2o.vcd > (10^35)] <- NA    # change the default filler value to NA
+#mair.time.int <- interval(start = mair.tau.start, end = mair.tau.end)
+#mair.time.length <- lubridate::time_length(mair.time.int, unit = "second")
+#mair.mid.time <- mair.tau.start + (mair.time.length / 2)
 
 # Retrieve the xch4 data and reorient it to match the proper lat/lon
-msat.xch4.mat <- ncvar_get(nc_data, "xch4")
-msat.xch4.mat[msat.xch4.mat > (10^35)] <- NA    # change the default filler value to NA
+mair.xch4.mat <- ncvar_get(nc_data, "xch4")
+mair.xch4.mat[mair.xch4.mat > (10^35)] <- NA    # change the default filler value to NA
 
-msat.xmin <- min(msat.lon)
-msat.xmax <- max(msat.lon)
-msat.ymin <- min(msat.lat)
-msat.ymax <- max(msat.lat)
+mair.xmin <- min(mair.lon)
+mair.xmax <- max(mair.lon)
+mair.ymin <- min(mair.lat)
+mair.ymax <- max(mair.lat)
 
-msat.ext <- c(msat.xmin, msat.xmax, msat.ymin, msat.ymax)
+mair.ext <- c(mair.xmin, mair.xmax, mair.ymin, mair.ymax)
 
-msat.xch4.rast <- rast(msat.xch4.mat)
-msat.xch4.rast <- terra::flip(t(msat.xch4.rast), direction = "vertical")
-ext(msat.xch4.rast) <- ext(msat.ext)
-crs(msat.xch4.rast) <- "+proj=longlat" #NEED TO MAKE SURE THAT THIS IS THE CORRECT CRS
-
-air.vcd.rast <- rast(air.vcd)
-air.vcd.rast <- terra::flip(t(air.vcd.rast), direction = "vertical")
-ext(air.vcd.rast) <- ext(msat.ext)
-crs(air.vcd.rast) <- "+proj=longlat"
-
-h2o.vcd.rast <- rast(h2o.vcd)
-h2o.vcd.rast <- terra::flip(t(h2o.vcd.rast), direction = "vertical")
-ext(h2o.vcd.rast) <- ext(msat.ext)
-crs(h2o.vcd.rast) <- "+proj=longlat"
+mair.xch4.rast <- rast(mair.xch4.mat)
+mair.xch4.rast <- terra::flip(t(mair.xch4.rast), direction = "vertical")
+ext(mair.xch4.rast) <- ext(mair.ext)
+crs(mair.xch4.rast) <- "+proj=longlat" #NEED TO MAKE SURE THAT THIS IS THE CORRECT CRS
 
 nc_close(nc_data)
 
-resample.grid.xmin <- floor(msat.xmin)
-resample.grid.xmax <- ceiling(msat.xmax)
-resample.grid.ymin <- floor(msat.ymin)
-resample.grid.ymax <- ceiling(msat.ymax)
+resample.grid.xmin <- floor(mair.xmin)
+resample.grid.xmax <- ceiling(mair.xmax)
+resample.grid.ymin <- floor(mair.ymin)
+resample.grid.ymax <- ceiling(mair.ymax)
 
 resample.grid.ext <- c(resample.grid.xmin, resample.grid.xmax, resample.grid.ymin, resample.grid.ymax)
 #resample.grid.lon <- seq(from = resample.grid.xmin, to = resample.grid.xmax, by = 0.01)
@@ -217,23 +214,14 @@ resample.grid.ext <- c(resample.grid.xmin, resample.grid.xmax, resample.grid.ymi
 #resample.grid.rast <- terra::rast(resample.grid.df, type = 'xyz', ext = resample.grid.ext, crs = "+proj=longlat")
 resample.grid.rast <- terra::rast(
   matrix(
-    #nrow = (resample.grid.ymax - resample.grid.ymin) / 0.01,
-    #ncol = (resample.grid.xmax - resample.grid.xmin) / 0.01
-    nrow = (resample.grid.ymax - resample.grid.ymin) / 0.02,
-    ncol = (resample.grid.xmax - resample.grid.xmin) / 0.02
+    nrow = (resample.grid.ymax - resample.grid.ymin) / 0.01,
+    ncol = (resample.grid.xmax - resample.grid.xmin) / 0.01
+    #nrow = (resample.grid.ymax - resample.grid.ymin) / 0.02,
+    #ncol = (resample.grid.xmax - resample.grid.xmin) / 0.02
   ),
   ext = resample.grid.ext,
   crs = "+proj=longlat"
 )
-
-  # Why doesn't this become exactly 0.01?
-  # Alternative:
-  #  resample.grid.mat <- matrix(nrow = length(resample.grid.lat), ncol = length(resample.grid.lon))
-  # resample.grid.rast <- terra::rast(resample.grid.mat, ext = resample.grid.ext, crs = "+proj=longlat")
-
-  # The df has exactly 0.01 spacing, but the raster doesn't? Weird.
-
-msat.stack <- c(msat.xch4.rast, air.vcd.rast, h2o.vcd.rast, air.vcd.rast - h2o.vcd.rast)
 
 # generate an aggregated raster, to be used when only an approximation is necessary
 #mair.xch4.rast.agg <- terra::aggregate(mair.xch4.rast, fact = 100)
@@ -256,42 +244,12 @@ msat.stack <- c(msat.xch4.rast, air.vcd.rast, h2o.vcd.rast, air.vcd.rast - h2o.v
 # Aggregating, then resamplig, puts a bunch of tiny blocks on a really blocky grid
 # So instead I will just smooth and resample the obs
 
-msat.xch4.rast.smooth <- applyFocalSums(msat.xch4.rast)
-msat.xch4.rast.agg <- terra::aggregate(msat.xch4.rast.smooth, fact = aggregation)
-msat.xch4.rast.resample <- terra::resample(msat.xch4.rast.agg, resample.grid.rast)
-msat.xch4.rast.agg <- msat.xch4.rast.resample
+mair.xch4.rast.smooth <- applyFocalSums(mair.xch4.rast)
+mair.xch4.rast.agg <- terra::aggregate(mair.xch4.rast.smooth, fact = aggregation)
+mair.xch4.rast.resample <- terra::resample(mair.xch4.rast.agg, resample.grid.rast)
+mair.xch4.rast.agg <- mair.xch4.rast.resample
 # XX NEED TO MAKE SURE THIS METHOD IS MASS CONSERVING 
 # XX NEED TO WORK "VALID FRACTION" INTO THE CODE FOR QA/QC
-
-
-# because it's molecules per cm^2, we're still able to average when we resample
-msat.stack.agg <- terra::aggregate(msat.stack, fact = (xres / 0.00042)) 
-msat.stack.resample <- terra::resample(msat.stack.agg, resample.grid.rast)
-msat.stack.agg <- applyFocalSums(msat.stack.resample)
-
-# dry air mass
-dry.air.mass <- (14.00 / 1000)*0.71 + (15.00 / 1000)*0.29 # kg/mol
-
-dry.air.column.mass <- msat.stack.agg[[4]] *  # molec / cm^2 
-  terra::cellSize(msat.stack.agg, unit = "m") * 100 * 100 /  # cm^2
-  6.022e23 *   # molec / mole
-  dry.air.mass  # kg / mole
-  # fial units of kg
-
-
-
-msat.kg.rast.agg <- msat.xch4.rast.agg / 1e9 * dry.air.column.mass
-  # order of magnitude 8000 kg in each 1 km / 1km cell. Does that seem reasonable?
-
-
-# NEED TO SUBTRACT H2O FROM AIR
-
-
-# NEED TO MULTIPLY BY PIXEL SIZE TO GET MOLECULES, CONVER TO KG
-
-# CONVERT MIXING RATIO TO MASS USING THE DRY VCD IN KG
-
-
 
 # set up the limits for the grid
 # XX how should the limits of the grid be expanded to encompass the whole region?
@@ -299,20 +257,6 @@ msat.kg.rast.agg <- msat.xch4.rast.agg / 1e9 * dry.air.column.mass
 # XX these might be useful now for determining the output grid
 # but not the input grid, which should just come from the observations
 # in this way it won't just be a lat/lon grid
-
-# XX WHAT DID I DO THIS FOR?
-# so now it becomes very important how I aggregate the observations
-xmn <- as.numeric(round(min(msat.lon), digits = 1)) - 1.0  # adds a 1.0 degree buffer around the whole scene
-xmx <- as.numeric(round(max(msat.lon), digits = 1)) + 1.0
-ymn <- as.numeric(round(min(msat.lat), digits = 1)) - 1.0
-ymx <- as.numeric(round(max(msat.lat), digits = 1)) + 1.0
-
-foot <-
-  matrix(
-    nrow = (xmx - xmn) / xres + 1,
-    ncol = (ymx - ymn) / yres + 1,
-    data = NA
-  )
 
 # generate the grid
 #x <- seq(from = xmn, to = xmx, by = xres)
@@ -326,19 +270,14 @@ foot <-
 #plot.df.agg <- as.data.frame(msat.xch4.rast.agg, xy = TRUE)
 #colnames(plot.df.agg) <- c('lon', 'lat', 'xch4')
 
-og.plot.df <- as.data.frame(msat.xch4.rast, xy = TRUE)
+og.plot.df <- as.data.frame(mair.xch4.rast, xy = TRUE)
 colnames(og.plot.df) <- c('lon', 'lat', 'xch4')
 
-og.plot.df.agg <- as.data.frame(msat.xch4.rast.agg, xy = TRUE)
+og.plot.df.agg <- as.data.frame(mair.xch4.rast.agg, xy = TRUE)
 colnames(og.plot.df.agg) <- c('lon', 'lat', 'xch4')
 
-msat.stack.df <- as.data.frame(msat.stack.agg, xy = TRUE)
-colnames(msat.stack.df) <- c('lon', 'lat', 'xch4', 'air_vcd', 'h2o_vcd', 'dry_air_vcd')
-
-msat.kg.df <- as.data.frame(msat.kg.rast.agg, xy = TRUE)
-colnames(msat.kg.df) <- c('lon', 'lat', 'kg')
-
-  # XX this means I'll need to convert the pressure correction from ppb to kg as well
+#og.plot.rast.agg <- terra::rast(og.plot.df.agg, type = 'xyz')
+og.plot.rast.agg <- mair.xch4.rast.agg
 
 #msat.lon.agg <- unique(plot.df.agg$lon)
 #msat.lat.agg <- unique(plot.df.agg$lat)
@@ -355,74 +294,6 @@ colnames(msat.kg.df) <- c('lon', 'lat', 'kg')
 
 #distance.df <- as.data.frame(distance.rast, xy = TRUE)
 #colnames(distance.df) <- c('lon', 'lat', 'distance')
-
-# install.packages("OpenImageR")
-library(OpenImageR)
-  # https://www.rdocumentation.org/packages/OpenImageR/versions/1.0.8/topics/uniform_filter
-
-nan_aware_local_std <-
-  function(
-    arr,
-    size = c(10, 10), # 10 pixels in either direction, is this a reasonable default value?
-  )  {
-
-#    """Compute the local standard deviation of a 2D array using a uniform filter.
-
-#    Args:
-#        arr (np.ndarray): (n,m) L3 data
-#        size (int): Size of the local window is (size x size) with pixel count size*size
-
-#    Returns:
-#        local_std (np.ndarray): (n,m) Local standard deviation of the input array
-#        local_count (np.ndarray): (n,m) Count of valid pixels in the local window
-#        local_mean (np.ndarray): (n,m) Local mean of the input array
-#    """
-    # NaN mask: 1 where valid, 0 where NaN
-    #valid_mask = np.isfinite(arr).astype(float)
-    valid_mask <- !is.na(arr)
-      # Note: Currently still boolean, but R will treat TRUE as 1 and FALSE as ZERO
-      # I used !is.na instead of isfinite equivalent because we should only have Na, not Inf
-
-    # Replace NaNs with 0 for sum computation (will be masked later)
-    #arr_filled = np.nan_to_num(arr, nan=0.0)
-    arr_filled[is.na(arr_filled)] <- 0.0
-
-    # Sum and count in the window
-    #local_mean = uniform_filter(arr_filled, size=size, mode="reflect")
-    #local_valid_fraction = uniform_filter(valid_mask, size=size, mode="reflect")
-    #local_sq_mean = uniform_filter(arr_filled**2, size=size, mode="reflect")
-#    local_mean <- uniform_filter(arr_filled, size=size, mode="same")
-#    local_valid_fraction <- uniform_filter(valid_mask, size=size, mode="same")
-#    local_sq_mean <- uniform_filter(arr_filled^2, size=size, mode="same")
-
-    # 3x3 focal window
-    #r_sd <- focal(r, w = 3, fun = sd, na.rm = TRUE)
-    #mat_sd <- as.matrix(r_sd)
-    local_mean_tick <- terra::focal(arr_filled, w= 10, fun = mean, na.rm = TRUE)
-    local_mean <- as.matrix(local_mean_tick)
-    local_valid_fraction_tick <- terra::focal(valid_mask, w = 10, fun = mean, na.rm = TRUE)
-    local_valid_fraction <- as.matrix(local_valid_fraction_tick)
-    local_sq_mean_tick <- terra::focal(arr_filled^2, w = 10, fun = mean, na.rm = TRUE)
-    local_sq_mean <- as.matrix(local_sq_mean)
-
-    # Remove regions with (nearly) no valid pixels
-    local_mean[local_valid_fraction < 1e-5] <- NaN
-    local_sq_mean[local_valid_fraction < 1e-5] <- NaN
-    local_valid_fraction[local_valid_fraction < 1e-5] <- NaN
-
-    # adjust for local count values (since we artificially added 0s in the mean calculation)
-    #local_mean /= local_valid_fraction
-    #local_sq_mean /= local_valid_fraction
-    local_mean <- local_mean / local_valid_fraction
-    local_sq_mean <- local_sq_mean / local_valid_fraction
-
-    # Std = sqrt(E[x^2] - (E[x])^2)
-    local_std <- sqrt(local_sq_mean - local_mean^2)
- 
-   return(local_std, local_valid_fraction, local_mean)
-}
-
-
 
 # Here is the description from the z_sigma.py file:
 #"""
@@ -480,144 +351,225 @@ nan_aware_local_std <-
 #------------------------------------------------------------------------------
 # Main-------------------------------------------------------------------------
 
-l3_file <- paste0(l3.dir, '/', file)
 
-# Load the input data  
-l3_list           <- LoadL3AsAggregatedRaster( l3_file               = l3_file,
+# Read in the "results" csv with the background offset
+bg_list <- read.csv(
+  paste0(
+    '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/MAIRForwardModel_v2/background/',
+    scene.name, '_background_results.csv'
+  )
+)
+
+# Start loop through L3 files
+
+l3_files <- list.files(path = l3.dir, pattern = "(_ak.nc)$")
+setwd(l3.dir)
+
+total.xch4.df <- data.frame(matrix(nrow = 0, ncol = 3))
+total.background.df <- data.frame(matrix(nrow = 0, ncol = 3))
+total.enhancement.df <- data.frame(matrix(nrow = 0, ncol = 3))
+
+for (i in seq(1:length(l3_files))){
+
+  print(paste0('Beginning loop # ', i, ' of ', length(l3_files)))
+
+  #l3_file <- paste0(l3.dir, '/', file)
+  l3_file <- l3_files[i]
+  print(paste0('l3_file = ', l3_file))
+
+  bg_offset <- bg_list$mean[i]
+
+  time.start.tick <- as_datetime(bg_list$time_coverage_start[i])
+  time.end.tick <- as_datetime(bg_list$time_coverage_end[i])
+
+  mair.time.int <- interval(start = time.start.tick, end = time.end.tick)
+  mair.time.length <- lubridate::time_length(mair.time.int, unit = "second")
+  mair.mid.time <- time.start.tick + (mair.time.length / 2)
+
+  # Load the input data  
+  l3_list           <- LoadL3AsAggregatedRaster( l3_file               = l3_file,
                                                numsamples_threshold  = numsamples_threshold, 
                                                  # how much does this parameter change things?
                                                resolution            = resolution,
                                                valid_fraction        = valid_fraction) #%>% 
-# Remove outliers 
-#l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 2 )
+  # Remove outliers 
+  #l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 2 )
 
-# Note: a higher "min_neighbors" threshold means more points will be removed
-# removing more low outliers effectively raises the background,
-# which reduces the enhancement and reduces the emissions.
-# I thought it made sense to have fewer neighbors required for MAIR, since there are fewer
-# points overall, more shapes, more gaps in the data
-if(instrument == 'MAIR'){
-#  l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 3, neighborhood_size = 0.01 ) 
+  # Note: a higher "min_neighbors" threshold means more points will be removed
+  # removing more low outliers effectively raises the background,
+  # which reduces the enhancement and reduces the emissions.
+  # I thought it made sense to have fewer neighbors required for MAIR, since there are fewer
+  # points overall, more shapes, more gaps in the data
+
+  #  l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 3, neighborhood_size = 0.01 ) 
   l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 1, neighborhood_size = 0.01 )
 
-}
-if(instrument == 'MSAT'){
-#  l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 5, neighborhood_size = 0.01 ) 
-  l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 1, neighborhood_size = 0.01 )  
-    # why did I change from 4 to 5 in the first place?
-  #l3_list_cleaned   <- RemoveOutliersFromL3( l3_list, min_neighbors = 4 )
-}
+  # 2025_06_17 - check z_sigma.py, seems to use permissive min_neighbors (no parameter exists)
 
-# 2025_06_17 - check z_sigma.py, seems to use permissive min_neighbors (no parameter exists)
+  # Determine retreival error 
+  retrieval_error   <- RetrievalErrorAlbedo( l3_list_cleaned$albedo_ch4 )
 
-# Determine retreival error 
-retrieval_error   <- RetrievalErrorAlbedo( l3_list_cleaned$albedo_ch4 )
+  # Establish the apriori xch4 enhancement 
+  xch4_enhancement_apriori <- ( l3_list_cleaned$xch4 - l3_list_cleaned$xch4_apriori ) / l3_list_cleaned$averaging_kernel
 
-# Set bounds for the range of backgrounds 
-xch4_enhancement_apriori <- ( l3_list_cleaned$xch4 - l3_list_cleaned$xch4_apriori ) / l3_list_cleaned$averaging_kernel
-bg_offset_min <- min( raster::values(xch4_enhancement_apriori), na.rm = TRUE ) + 0.1
-bg_offset_max <- max( raster::values(xch4_enhancement_apriori), na.rm = TRUE )
-bg_offsets    <- seq(from = bg_offset_min, to = bg_offset_max, by = 0.1)
 
-# Initialize the standard deviaitons of the half-Gaussian distributions 
-sds           <- rep(NA, length(bg_offsets))
-for(tick in seq_len( length(bg_offsets) ) ) {
 
-  # Compute the enhancmeents
-  xch4_enhancement_simulated <-
+  # Read the appropriate background offset from the csv
+
+
+  # If there is a bg_offset given in the config file, use that instead
+  #if(is.na(config_offset)){
+  #  # Determine the offset 
+  #  bg_offset <- max(bg_offsets[sds <= 1], na.rm = TRUE)
+  #}
+  #if(!is.na(config_offset)){
+  #  bg_offset <- config_offset
+  #}
+
+
+  # Find the final enhancement 
+  #xch4_enhancement <-
+  #  l3_list_cleaned$xch4 -
+  #  l3_list_cleaned$xch4_apriori -
+  #  bg_offset * l3_list_cleaned$averaging_kernel
+
+  # JB on 2025_05_20
+
+  xch4_enhancement <-
     l3_list_cleaned$xch4 -
-    l3_list_cleaned$xch4_apriori -
-    bg_offsets[tick] * l3_list_cleaned$averaging_kernel
+    (l3_list_cleaned$xch4_apriori +
+    bg_offset * l3_list_cleaned$averaging_kernel)
+
+  xch4_enhancement <- terra::rast(xch4_enhancement)
+
+  # Calculate the mid-time from the start and end time in the CSV
+
+  # Turn into a dataframe, including the mid-time. 
+
+  # Add to a collective dataframe.
+
+  # Consider moving the reaggregation from below up to here
+
+  # Note: below, plot.df.agg gets used to build the receptors.
+  # Instead, use the dataframe built here.
+  # You'll need to edit the way FLEXPART is initiated so that the receptors
+  # have different start times.
 
 
-  # Isolate all gridcells with negative simulated enhancements to check standard deviation
-  sample_points <- which( values(xch4_enhancement_simulated) <= 0 )
 
-  # Measure the normalized residuals 
-  my_sample     <- c(xch4_enhancement_simulated[sample_points],
-                     -xch4_enhancement_simulated[sample_points] ) /
-                    retrieval_error[sample_points]
+  #mean.background <- mean(
+  #  l3_list_cleaned$xch4_apriori +
+  #  bg_offset * l3_list_cleaned$averaging_kernel
 
-  # XX 2025_05_28 - I don't think that concatenating the sample points with the negative sample points
-  # is statistically permissible to build a Gaussian distribution
+  #)
 
-  # this method would be improved by normalizing relative to the local retrieval error, not the global retrieval error
 
-  #sds[tick]     <- sd(my_sample)
-  sds[tick]      <- nan_aware_local_std(my_samples, size = c(10, 10))[1] 
-    # JB 2025_06_18 now calculating local standard deviation instead of global
+  # 2025_07_11 - THEY'RE ALREADY ON THE RIGHT GRID, RESAMPLING
+  # THEM IS REDUNDANT, UNLESS THEY NEED TO BE CROPPED
+
+
+  # Resample the observations from this new method only the equal 0.02 degree grid established above
+  plot.rast <- terra::rast(l3_list_cleaned$xch4)
+#  plot.rast.agg <- terra::resample(plot.rast, og.plot.rast.agg)
+  plot.rast.agg <- terra::resample(plot.rast, resample.grid.rast, method = 'average')
+
+  # Note: 2025_07_11 if you don't specify method = 'average' it will 
+  # perform bilinear interpolation, which can create slight differences
+  # including a different number of cells and therefore different dataframe dimensions  
+
+  plot.df.agg <- as.data.frame(plot.rast.agg, xy = TRUE) %>%
+    dplyr::mutate(time = mair.mid.time)
+  colnames(plot.df.agg) <- c('lon', 'lat', 'xch4', 'time')
+  plot.df.agg <- plot.df.agg %>%
+    dplyr::filter(!is.na(xch4))
+
+  mean.xch4 <- mean(plot.df.agg$xch4, na.rm = TRUE)
+
+  png(
+    paste0(plots.dir, l3_file,'_xch4.png'), 
+    width = 8, 
+    height = 8, 
+    units = "in", 
+    res = 180
+  )
+  plot(plot.rast.agg, main = paste0('mean xch4 = ', mean.xch4, ' ppb'))
+  dev.off()
+
+  # Resample the enhancements onto this grid
+  #xch4_enhancement_resample <- terra::resample(xch4_enhancement, og.plot.rast.agg, method = 'average')
+  xch4_enhancement_resample <- terra::resample(xch4_enhancement, resample.grid.rast, method = 'average')
+
+  xch4.enhancement.df <- as.data.frame(xch4_enhancement_resample, xy = TRUE) %>%
+    dplyr::mutate(time = mair.mid.time)
+  colnames(xch4.enhancement.df) <- c('lon', 'lat', 'xch4', 'time')
+  xch4.enhancement.df <- xch4.enhancement.df %>%
+    filter(!is.na(xch4))
+
+  mean.enhancement <- mean(xch4.enhancement.df$xch4, na.rm = TRUE)
+
+  png(
+    paste0(plots.dir, l3_file,'_enhancement.png'),         
+    width = 8, 
+    height = 8, 
+    units = "in", 
+    res = 180
+  )
+  plot(xch4_enhancement_resample, main = paste0('mean enhancement = ', mean.enhancement, ' ppb'))
+  dev.off()
+
+  # Create the spatially resolved background from the apriori information and the averaging kernel
+  background.rast <- terra::rast(l3_list_cleaned$xch4_apriori +
+    bg_offset * l3_list_cleaned$averaging_kernel)
+
+#  background.rast.agg <- terra::resample(background.rast, og.plot.rast.agg, method = 'average')
+  background.rast.agg <- terra::resample(background.rast, resample.grid.rast, method = 'average')
+
+  background.df <- as.data.frame(background.rast.agg, xy = TRUE) %>%
+    dplyr::mutate(time = mair.mid.time)
+  colnames(background.df) <- c('lon', 'lat', 'xch4', 'time')
+  background.df <- background.df %>%
+    dplyr::filter(!is.na(xch4))
+
+  mean.background <- mean(background.df$xch4, na.rm = TRUE)
+
+  png(
+    paste0(plots.dir, l3_file,'_background.png'),         
+    width = 8, 
+    height = 8, 
+    units = "in", 
+    res = 180
+  )
+  plot(background.rast.agg, main = paste0('mean bg = ', mean.background, ' ppb'))
+  dev.off()
+
+  print(dim(plot.df.agg))
+  print(dim(xch4.enhancement.df))
+  print(dim(background.df))
+
+  total.xch4.df <- rbind(total.xch4.df, plot.df.agg)
+  total.enhancement.df <- rbind(total.enhancement.df, xch4.enhancement.df)
+  total.background.df <- rbind(total.background.df, background.df)
 
 }
+# End for loop
+setwd(output.dir)
 
-# If there is a bg_offset given in the config file, use that instead
-if(is.na(config_offset)){
-  # Determine the offset 
-  bg_offset <- max(bg_offsets[sds <= 1], na.rm = TRUE)
-}
-if(!is.na(config_offset)){
-  bg_offset <- config_offset
-}
+# The time needs to be "release time for each particle seconds after simulation start"
+# which is the end time of the simulation because we are running backwards
 
+# Read the end time of the simulation from the config file and determine
+# how many seconds to each timestamp.
+# Create a new column of total.xch4.df.
 
-# JB 2025_06_18 - currently I'm calculating the z-score globally for the dataset,
-# rather than compared to local values. 
-# A larger sample size (n) will lead to a smaller sd, so I'm making the sd artificially small,
-# so it will be able to accomodate fewer negative enhancements.
-# Which means my background is artificially high.
-# So I need to be calculating them locally
+end_date <- config$flexpart$end_date
+end_time <- config$flexpart$end_time
 
-# Find the final enhancement 
-#xch4_enhancement <-
-#  l3_list_cleaned$xch4 -
-#  l3_list_cleaned$xch4_apriori -
-#  bg_offset * l3_list_cleaned$averaging_kernel
+iedate <- as_datetime(paste0(end_date, ' ', end_time))
 
-# JB on 2025_05_20
-
-xch4_enhancement <-
-  l3_list_cleaned$xch4 -
-  (l3_list_cleaned$xch4_apriori +
-  bg_offset * l3_list_cleaned$averaging_kernel)
-
-xch4_enhancement <- terra::rast(xch4_enhancement)
+#time.int.tick <- interval(start = , end = mair.tau.end)
+#time.length.tick <- lubridate::time_length(mair.time.int, unit = "second")
 
 
-
-#mean.background <- mean(
-#  l3_list_cleaned$xch4_apriori +
-#  bg_offset * l3_list_cleaned$averaging_kernel
-
-#)
-
-# Resample the observations from this new method only the equal 0.02 degree grid established above
-og.plot.rast.agg <- terra::rast(og.plot.df.agg, type = 'xyz')
-
-plot.rast <- terra::rast(l3_list_cleaned$xch4)
-plot.rast.agg <- terra::resample(plot.rast, og.plot.rast.agg)
-plot.df.agg <- as.data.frame(plot.rast.agg, xy = TRUE)
-colnames(plot.df.agg) <- c('lon', 'lat', 'xch4')
-
-
-# Resample the enhancements onto this grid
-xch4_enhancement_resample <- terra::resample(xch4_enhancement, og.plot.rast.agg, method = 'average')
-
-xch4.enhancement.df <- as.data.frame(xch4_enhancement_resample, xy = TRUE)
-colnames(xch4.enhancement.df) <- c('lon', 'lat', 'xch4')
-xch4.enhancement.df <- xch4.enhancement.df %>%
-  filter(!is.na(xch4))
-
-# Create the spatially resolved background from the apriori information and the averaging kernel
-background.rast <- terra::rast(l3_list_cleaned$xch4_apriori +
-  bg_offset * l3_list_cleaned$averaging_kernel)
-
-background.rast.agg <- terra::resample(background.rast, og.plot.rast.agg, method = 'average')
-
-background.df <- as.data.frame(background.rast.agg, xy = TRUE)
-colnames(background.df) <- c('lon', 'lat', 'xch4')
-background.df <- background.df %>%
-  dplyr::filter(!is.na(xch4))
-
-mean.background <- mean(background.df$xch4, na.rm = TRUE)
 
 #save(
 #  new.obs.df,
@@ -627,19 +579,37 @@ mean.background <- mean(background.df$xch4, na.rm = TRUE)
 #  file = paste0(flight.name, '_New_Background.RData')
 #)
 
-msat.lon.agg <- unique(plot.df.agg$lon)
-msat.lat.agg <- unique(plot.df.agg$lat)
+#msat.lon.agg <- unique(plot.df.agg$lon)
+#msat.lat.agg <- unique(plot.df.agg$lat)
 
+#plot.df.agg <- plot.df.agg %>%
+#  dplyr::mutate(
+#    background = background.df$xch4,
+#    enhancement = xch4.enhancement.df$xch4
+#)
 
-plot.df.agg <- plot.df.agg %>%
+msat.lon.agg <- unique(total.enhancement.df$lon)
+msat.lat.agg <- unique(total.enhancement.df$lat)
+
+plot.df.agg <- total.xch4.df %>%
   dplyr::mutate(
-    background = background.df$xch4,
-    enhancement = xch4.enhancement.df$xch4
-)
+    background = total.background.df$xch4,
+    enhancement = total.enhancement.df$xch4,
+    time.diff.secs = as.numeric(
+      lubridate::time_length(
+        interval(
+          start = total.xch4.df$time, end = iedate
+        ), 
+        unit = "second"
+      )
+    )
+  )
 
+#  mair.time.int <- interval(start = time.start.tick, end = time.end.tick)
+#  mair.time.length <- lubridate::time_length(mair.time.int, unit = "second")
 
 # Compare to Josh's receptor list:
-#'/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Inverse_Analysis/Intermediate/Receptor_List/RF06_Permain/Receptors.rds'
+# '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Inverse_Analysis/Intermediate/Receptor_List/RF06_Permain/Receptors.rds'
 # Compare to Josh's MSAT_005 Receptor List:
 # '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Inverse_Analysis/Intermediates/Receptor_Lists/MSAT_TARGET-005_DATE-2024_09_11_ID-01430050'
 
@@ -711,6 +681,318 @@ cp <- c(0.0,
   1.0,
   0.1
 )
+
+
+
+
+
+# Get a list of all L2 files
+setwd(l2.dir)
+files <- list.files(path = l2.dir, pattern = "_post.nc")
+
+# Make a matrix to save all averaging kernel values
+averaging.kernel.track <- matrix(0, nrow = 19, ncol = length(files))
+p.levels.track <- matrix(0, nrow = 19, ncol = length(files))
+p.edges.track <- matrix(0, nrow = 20, ncol = length(files))
+p.surf.track <- matrix(0, nrow = 1, ncol = length(files))
+p.trop.track <- matrix(0, nrow = 1, ncol = length(files))
+height.track <- matrix(0, nrow = 19, ncol = length(files))
+weight.track <- matrix(0, nrow = length(files), ncol = 1)
+percent.bad.track <- matrix(0, nrow = length(files), ncol = 1)
+weight.track.height <- matrix(0, nrow = length(files), ncol = 1)
+height.track <- matrix(0, nrow = 19, ncol = length(files))
+
+# Loop through the L2 files
+count <- 1
+for(file in files){
+
+  print(Sys.time())
+  print(paste0("Starting loop: ", count))
+
+  # Open the file
+  nc_data <- nc_open(file)
+
+  # Retrieve the relevant variables
+
+  apriori.p0 <- ncvar_get(nc_data, varid = "apriori_data/surface_pressure")
+  apriori.ptrop <- ncvar_get(nc_data, varid = 'apriori_data/tropopause_pressure')
+  lon <- ncvar_get(nc_data, varid = "geolocation/longitude")
+  lat <- ncvar_get(nc_data, varid = "geolocation/latitude")
+
+  min.lon <- min(lon, na.rm = TRUE)
+  max.lon <- max(lon, na.rm = TRUE)
+  min.lat <- min(lat, na.rm = TRUE)
+  max.lat <- max(lat, na.rm = TRUE)
+
+  p0.ext <- c(min.lon, max.lon, min.lat, max.lat)
+  quality.flag <- ncvar_get(nc_data, varid = "product_co2proxy/main_quality_flag")
+    # Fill Value = -128
+    # 1 = bad
+    # 0 = good (assuming that most cells pass quality control)
+    # and based on the description of the variable
+
+  #good.quality.idx <- quality.flag == 0
+  #bad.quality.idx <- !good.quality.idx
+  bad.quality.idx <- quality.flag == 1
+  bad.quality.mask <- terra::rast(bad.quality.idx, crs = "+proj=longlat", ext = p0.ext)
+  good.quality.idx <- !bad.quality.idx
+
+  averaging.kernel <- ncvar_get(nc_data, varid = "co2proxy_fit_diagnostics/ch4_averaging_kernel")
+  averaging.kernel.rotate <- aperm(averaging.kernel, c(2, 3, 1))
+
+  averaging.kernel.rast <- terra::rast(averaging.kernel.rotate, crs = "+proj=longlat", ext = p0.ext)
+
+  # where the bad quality mask value is equal to 1, set to NA
+  averaging.kernel.mask <- terra::mask(
+    averaging.kernel.rast,
+    bad.quality.mask,
+    maskvalue = 1,
+    updatevalue = NA
+  )
+
+  #averaging.kernel.filter <- averaging.kernel[c(1:19, good.quality.idx)]
+  #averaging.kernel.filter <- as.array(averaging.kernel.mask)
+  averaging.kernel.filter <- as.matrix(averaging.kernel.mask, nrow = 256, ncol = 301)
+
+  mean.averaging.kernel <- apply(averaging.kernel.filter, 2, mean, na.rm = TRUE)
+  
+  apriori.p0.rast <- terra::rast(apriori.p0, crs = "+proj=longlat", ext = p0.ext)
+
+  apriori.p0.mask <- terra::mask(
+    apriori.p0.rast,
+    bad.quality.mask,
+    maskvalue = 1,
+    updatevalue = NA
+  )
+
+  apriori.p0.df <- as.data.frame(apriori.p0.rast, xy = TRUE)
+
+  apriori.ptrop.rast <- terra::rast(apriori.ptrop, crs = "+proj=longlat", ext = p0.ext)
+
+  apriori.p0.mask <- terra::mask(
+    apriori.ptrop.rast,
+    bad.quality.mask,
+    maskvalue = 1,
+    updatevalue = NA
+  )
+
+  apriori.ptrop.df <- as.data.frame(apriori.ptrop.rast, xy = TRUE)
+
+#  apriori.p0.df <- as.data.frame(apriori.p0.rast, xy = TRUE)
+#  colnames(apriori.p0.df) <- c('along_track', 'across_track', 'p0')
+
+  #psurf <- mean(apriori_surface_pressure[!is.na(apriori_surface_pressure)])     # hPa
+  #ptrop <- mean(apriori_tropopause_pressure[!is.na(apriori_tropopause_pressure)])   # hPa
+
+  mean.psurf <- mean(apriori.p0, na.rm = TRUE)  # hPa
+  mean.ptrop <- mean(apriori.ptrop, na.rm = TRUE)
+
+  # THERE IS AN APRIORI TEMPERATURE PROFILE, SO I CAN DO A MORE ACCURATE JOB THAN THIS
+  #alt_trop <- -1 * log(ptrop/psurf) / (1.24426778e-4)
+  #alt.trop <- -1 * log(apriori.ptrop / apriori.p0) / (1.24426778e-4)
+  alt.trop <- -1 * log(mean.ptrop / mean.psurf) / (1.24426778e-4)
+
+  #p.edges <- (ap * (apriori.p0 - apriori.ptrop)) + (bp * apriori.ptrop) + cp
+
+  #p_edges <- (ap * (psurf - ptrop)) + (bp * ptrop) + cp
+    # vertical levels are evenly spaced by pressure
+
+  #p.edges <- apply(
+  #  c(apriori.p0, apriori.ptrop),
+  #  c(1, 2),
+  #  function(x) (ap * (x[1] - x[2])) + (bp * x[2]) + cp
+  #)
+
+  p.edges <- (ap * (mean.psurf - mean.ptrop)) + (bp * mean.ptrop) + cp
+    # Assuming hydrostatic conditions for the sake of approximation
+  height.top <- -1 * log(p.edges/mean.psurf) / (1.24426778e-4)
+  # this is the height associated with the top edge of each level
+  #  (excluding value 0.000, which is only a bottom edge
+
+  # NEED TO CHECK THESE EQUATIONS, I'M NOT SO SURE
+
+  p.levels <- array()
+  for (i in c(2:20)){
+     p.levels[i-1] <- (p.edges[i-1] + p.edges[i]) / 2
+  }
+
+  height <- -1 * log(p.levels/mean.psurf) / (1.24426778e-4)
+
+  # Add the variables to the matrix
+  averaging.kernel.track[ , count] <- mean.averaging.kernel
+    # each column of this matrix will be a new mean averaging kernel
+    # arranged in descending order in the atmosphere
+    # (the top of the matrix is the top of the atmosphere) 
+  p.levels.track[ , count] <- p.levels
+    # 2025_07_11 this is already the mean b/c I'm using the mean.psurf and mean.ptrop
+  p.edges.track[ , count] <- p.edges
+  p.surf.track[count] <- mean.psurf
+  p.trop.track[count] <- mean.ptrop  
+
+  weight.track[count] <- sum(good.quality.idx)
+  percent.bad.track[count] <- sum(bad.quality.idx) / length(bad.quality.idx)
+
+  height.track[ , count] <- rev(height)
+    # reversing the height allows it to match the orientation of the averaging kernel
+  weight.track.height[count] <- sum(!is.na(apriori.p0))
+
+  print(Sys.time())
+  print(paste0("Finished loop: ", count))
+
+  count <- count + 1
+}
+
+# Retrieve the averaging kernel for every cell
+
+#representative.averaging.kernel <- apply(
+#  averaging.kernel.track, 2, 
+#  function(x) (t(averaging.kernel.track) * weight.track) / sum(weight.track)
+#)
+
+
+# Take a weighted sum of the averaging kernel and height to find a representative value
+# the weights are based on the number of valid points in each sample,
+# so that larger files don't have a greater weight
+weight.track <- as.numeric(weight.track)
+weight.track.height <- as.numeric(weight.track.height)
+
+#representative.averaging.kernel <- apply(
+#  averaging.kernel.track * weight.track,
+#  1,
+#  sum,
+#  na.rm = TRUE
+#) / sum(weight.track, na.rm = TRUE)
+
+rep.averaging.kernel <-
+  averaging.kernel.track %*% weight.track / sum(weight.track)
+
+rep.p.levels <-
+  p.levels.track %*% weight.track / sum(weight.track)
+
+rep.p.edges <-
+  p.edges.track %*% weight.track / sum(weight.track)
+
+rep.p.surf <- as.numeric(
+  p.surf.track %*% weight.track / sum(weight.track)
+)
+
+rep.p.trop <- as.numeric(
+  p.trop.track %*% weight.track / sum(weight.track)
+)
+
+#representative.height <- apply(
+#  (height.track %*% t(weight.track.height)),
+#  1,
+#  sum,
+#  na.rm = TRUE
+#) / sum(weight.track.height, na.rm = TRUE)
+
+rep.height <-
+  height.track %*% weight.track.height / sum(weight.track.height)
+
+#sum.averaging.kernel <- apply(
+#  averaging.kernel.track, 1, 
+#  sum,
+#  na.rm = TRUE
+#)
+
+rep.averaging.kernel.plot <- format(round(rep.averaging.kernel, 3), nsmall = 3)
+rep.height.plot <- format(round(rep.height, 3), nsmall = 3)
+rep.p.levels.plot <- format(round(rep.p.levels, 3), nsmall = 3)
+
+
+
+
+
+
+# Copied from the former MSAT method ------------------------------------------------
+
+#delta_p <- array()
+#for (i in c(2:20)){
+#   delta_p[i-1] <- (p_edges[i-1] - p_edges[i])
+#}
+
+delta_p <- array()
+for (i in c(2:20)){
+   delta_p[i-1] <- (rep.p.edges[i-1] - rep.p.edges[i])
+}
+
+setwd(output.dir)
+#new.p <- seq(from = p_levels[1], to = p_levels[13], by = -1 * (delta_p[1] / 2))
+#new.p <- seq(from = psurf - (delta_p[1] / 5), to = p_levels[10], by = -1 * (delta_p[1] / 5))
+new.p <- seq(from = rep.p.surf - (delta_p[1] / 5), to = rep.p.levels[10], by = -1 * (delta_p[1] / 5))
+
+#new.p <- seq(from = p_levels[1] + 1 * (delta_p[1] / 2), to = p_levels[13], by = -1 * (delta_p[1] / 2))
+  # the first level is already  1 * (delta_p[1] / 2) off of the surface,
+  # so if I take a step closer to the surface I'll be releasing emitters from the surface
+  # which isn't a good idea
+#msat.alt.new <- -1 * log((new.p)/psurf) / (1.24426778e-4)
+alt.new <- -1 * log((new.p)/rep.p.surf) / (1.24426778e-4) 
+  # XX where did this equation come from anyhow?
+
+# The spacing between the pressure levels is linear
+# Which means the spacing between altitude levels is exponential
+# We will interpolate linearly between each averaging kernel to get the
+# values at each of the new points, b/c they're assigned on the evenly
+# spaced pressure grid and there is no fit for them
+
+# 2025_07_11 IS THIS DEPRECATED THEN?
+#average.kernel.new <- array()
+#count <- 1
+#for (i in c(2:length(rep.averaging.kernel))){
+#  average.kernel.new[count] <- mean(rep.averaging.kernel[i], rep.averaging.kernel[i-1])
+#  count <- count + 1
+#}
+
+linear.interp <- stats::approx(x = rep.p.levels, y = rev(rep.averaging.kernel), xout = new.p, method = "linear")
+average.kernel.new <- linear.interp$y
+  # using this method you don't even need to shorten it, you just interpolate to the levels you want
+
+average.kernel.new[is.na(average.kernel.new)] <- max(average.kernel.new, na.rm = TRUE)
+  # necessary when extrapolating below averaging kernel
+
+#average.kernel <- average.kernel[1:13]
+
+
+# If using MethaneAIR data, need to feed in a list of averaging kernel values manually
+# 2025_07_11 - this is copied from the MSAT version of the script
+# but it should throw errors before you even get this far.
+
+#instrument <- config$scene$instrument
+
+#if (instrument == 'MAIR'){
+#
+#  # this is very back of the envelope, for RF06 only
+#  weights <- c(1.05, 1.04, 1.02, 1.00, 0.98, 0.96,
+#      0.94, 0.91, 0.88, 0.85, 0.80, 0.76,
+#      0.47, 0.42, 0.40, 0.39, 0.37, 0.35, 0.34)
+#
+#  linear.interp <- stats::approx(x = p_levels, y = weights, xout = new.p, method = "linear")
+#  average.kernel.new <- linear.interp$y
+#    # using this method you don't even need to shorten it, you just interpolate to the levels you want
+#
+#  average.kernel.new[is.na(average.kernel.new)] <- weights[1]
+#  # necessary when extrapolating below averaging kernel
+#
+#}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -795,11 +1077,13 @@ average.kernel.new[is.na(average.kernel.new)] <- 1.0547245
 
 
 # If using MethaneAIR data, need to feed in a list of averaging kernel values manually
+# 2025_07_11 - this is copied from the MSAT version of the script
+# but it should throw errors before you even get this far.
 
 instrument <- config$scene$instrument
 
-if(instrument == 'MAIR'){
-  
+if (instrument == 'MAIR'){  
+ 
   # this is very back of the envelope, for RF06 only
   weights <- c(1.05, 1.04, 1.02, 1.00, 0.98, 0.96,
       0.94, 0.91, 0.88, 0.85, 0.80, 0.76,
@@ -813,6 +1097,18 @@ if(instrument == 'MAIR'){
   # necessary when extrapolating below averaging kernel
   
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -842,14 +1138,14 @@ if(instrument == 'MAIR'){
 
 # Thanks ChatGPT for help with this
 # Number of repetitions (should match length of altitude vector)
-n_rep <- length(msat.alt.new)
+n_rep <- length(alt.new)
 
-# repeat lat/lon pairs
-df <- plot.df.agg %>% dplyr::select(lon, lat)
+# repeat lat/lon/time pairs
+df <- plot.df.agg %>% dplyr::select(lon, lat, time.diff.secs)
 expanded_df <- df[rep(1:nrow(df), each = n_rep), ]
 
 # Repeat altitude values for each lat/lon pair
-expanded_df$zagl <- rep(msat.alt.new, times = nrow(df))
+expanded_df$zagl <- rep(alt.new, times = nrow(df))
 expanded_df$ak <- rep(average.kernel.new, times = nrow(df))
 expanded_df$number <- rep(1:nrow(df), each = n_rep)
 
@@ -864,13 +1160,16 @@ releases.df <- expanded_df
 # colnames(releases.df) <- c('zagl', 'lon', 'lat', 'ak', 'number')
 #   # because expand.grid creates a dataframe that is already sorted, there will be no need to sort in 03a
 
-max.num <- dim(releases.df)[1] / length(msat.alt.new)
+max.num <- dim(releases.df)[1] / length(alt.new)
 # Formerly: # [1] 95703
 # [1] 68312
   # wonder what changed to make this number bigger?
 
 # XX DO I NEED TO MAKE A VERSION THAT CAN BE FED STRAIGHT INTO PART_IC.NC TOO?
 # WHEN YOU TRY TO EXPAND.GRID WITH C(1:526) YOU RUN OUT OF MEMORY
+
+
+
 
 
 
@@ -987,6 +1286,15 @@ max.num <- dim(releases.df)[1] / length(msat.alt.new)
 # XX NEED TO ADD A ZAGL COMPONENT HERE TOO XX
 #receptors.df <- data.frame(cbind(X, Y, N, dist, inflow))
 
+
+
+
+
+
+
+
+
+
 # Save relevant output for building the configuration file, plotting and analysis.
 setwd(output.dir)
 save(
@@ -1002,42 +1310,27 @@ save(
   #plot.df.ext, 
   og.plot.df.agg,
   plot.df.agg,
-  msat.stack.df,
-  msat.kg.df,
-  msat.alt.new,
-  average.kernel, 
+  #msat.stack.df,
+  #msat.kg.df,
+  alt.new,
+  #average.kernel, 
+  average.kernel.new,
   #distance.df,
-  msat.tau.start,
-  msat.tau.end,
-  l3_list,
-  l3_list_cleaned,
-  retrieval_error,
-  xch4_enhancement_apriori,
-  bg_offset_min,
-  bg_offset_max,
-  bg_offsets,
-  bg_offset,
-  sds, 
+  #msat.tau.start,
+  #msat.tau.end,
+  #l3_list,
+  #l3_list_cleaned,
+  #retrieval_error,
+  #xch4_enhancement_apriori,
+  total.enhancement.df,
+  total.background.df,
+  total.xch4.df,
+#  bg_offset_min,
+#  bg_offset_max,
+#  bg_offsets,
+#  bg_offset,
+#  sds, 
   file = paste0('02_', scene.name, '_Build_Grid_Output.RData')
 )
-
-
-# Filter out valid fraction?
-
-# # Count the fraction of non-na pixels in each aggregated cell
-#  l3_raster_aggregated_validfrac2 <-
-#    raster::aggregate(
-#      l3_raster,
-#      fun = function(x, na.rm) {sum(!is.na(x)) / length(x)},
-#      fact = config$inputs$l3$aggregation,
-#      na.rm = FALSE
-#    )
-#  l3_raster_aggregated_validfrac <-
-#    raster::trim(raster::projectRaster(l3_raster_aggregated_validfrac2, r))
-#
-#  # Screen out values with few non-na
-#  l3_raster_aggregated[
-#    l3_raster_aggregated_validfrac < config$inputs$l3$valid_fraction
-#  ] <- NA
 
 
