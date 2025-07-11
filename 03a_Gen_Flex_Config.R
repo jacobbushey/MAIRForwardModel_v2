@@ -183,7 +183,7 @@ approx.particles.per.column <- 1e4       # XX 2025_05_28
 mass.per.column <- 1e6
 
 #layers.per.column <- 19
-layers.per.column <- length(msat.alt.new)
+layers.per.column <- length(alt.new)
   # just doing the 13 lowest layers to not waste particles in upper atmosphere
 #receptors.per.column <- layers.per.column
 
@@ -339,6 +339,7 @@ for (j in c(1:loop_length)){
           lat.tick <- releases.tick$lat
           zagl.tick <- releases.tick$zagl
           ak.tick <- releases.tick$ak
+          time.tick <- releases.tick$time.diff.secs
 
           #lon.tick.long <- rep(lon.tick, releases.per.layer * layers.per.column)
           #lat.tick.long <- rep(lat.tick, releases.per.layer * layers.per.column)
@@ -359,11 +360,20 @@ for (j in c(1:loop_length)){
           # April 15, 2025
           lon.tick.long <- (rep(lon.tick, each = releases.per.layer))
           lat.tick.long <- (rep(lat.tick, each = releases.per.layer))
+          time.tick.long <- rep(time.tick, each = releases.per.layer)
           zagl.tick.long <- rep(zagl.tick, each = releases.per.layer)
           ak.tick.long <- rep(ak.tick, each = releases.per.layer)
 
-          releases.tick.long <- data.frame(cbind(lon.tick.long, lat.tick.long, zagl.tick.long, ak.tick.long)) %>%
-            dplyr::mutate(releases = column.number.long)
+          releases.tick.long <- data.frame(
+            cbind(
+              lon.tick.long, 
+              lat.tick.long, 
+              time.tick.long, 
+              zagl.tick.long, 
+              ak.tick.long
+            )
+          ) %>%
+          dplyr::mutate(releases = column.number.long)
 
 
           # XX releases.tick.long should always have columns.per.brick (1000) "unique" combinations
@@ -371,7 +381,7 @@ for (j in c(1:loop_length)){
           # test.df <- unique(releases.tick.long[ , c("lon", "lat", "releases")])
 
 
-          colnames(releases.tick.long) <- c('lon', 'lat', 'zagl', 'ak', 'releases')
+          colnames(releases.tick.long) <- c('lon', 'lat', 'time', 'zagl', 'ak', 'releases')
 
           # XX releasing the same number of particles but a different mass should
           # be mathematically the same as same mass, different particles, right?
@@ -424,7 +434,7 @@ for (j in c(1:loop_length)){
           # Initialize variables with NA (or another placeholder if desired)
           ncvar_put(nc, var_longitude, releases.tick.long$lon)
           ncvar_put(nc, var_latitude, releases.tick.long$lat)
-          ncvar_put(nc, var_time, rep(0, dim(releases.tick.long)[1]))
+          ncvar_put(nc, var_time, releases.tick.long$time)
           ncvar_put(nc, var_height, releases.tick.long$zagl)
           #ncvar_put(nc, var_release, rep(numpar, dim(releases.tick)[1]))
           ncvar_put(nc, var_release, releases.tick.long$release) # if these are all to be a part of the same release
@@ -502,6 +512,7 @@ for (j in c(1:loop_length)){
           releases.tick <- releases.df[loop.idx, ]
           lon.tick <- releases.tick$lon
           lat.tick <- releases.tick$lat
+          time.tick <- releases.tick$time.diff.secs
           zagl.tick <- releases.tick$zagl
           ak.tick <- releases.tick$ak
 
@@ -520,13 +531,22 @@ for (j in c(1:loop_length)){
           # April 15, 2025
           lon.tick.long <- (rep(lon.tick, each = releases.per.layer))
           lat.tick.long <- (rep(lat.tick, each = releases.per.layer))
+          time.tick.long <- rep(time.tick, each = releases.per.layer)
           zagl.tick.long <- rep(zagl.tick, each = releases.per.layer)
           ak.tick.long <- rep(ak.tick, each = releases.per.layer)
 
-          releases.tick.long <- data.frame(cbind(lon.tick.long, lat.tick.long, zagl.tick.long, ak.tick.long)) %>%
-            dplyr::mutate(releases = column.number.long)
+          releases.tick.long <- data.frame(
+            cbind(
+              lon.tick.long, 
+              lat.tick.long,
+              time.tick.long, 
+              zagl.tick.long, 
+              ak.tick.long
+            )
+          ) %>%
+          dplyr::mutate(releases = column.number.long)
 
-          colnames(releases.tick.long) <- c('lon', 'lat', 'zagl', 'ak', 'releases')
+          colnames(releases.tick.long) <- c('lon', 'lat', 'time', 'zagl', 'ak', 'releases')
 
           # Check to make sure that this shorter loop is working correctly:
           #> dim(releases.tick.long)
@@ -590,7 +610,7 @@ for (j in c(1:loop_length)){
           # Initialize variables with NA (or another placeholder if desired)
           ncvar_put(nc, var_longitude, releases.tick.long$lon)
           ncvar_put(nc, var_latitude, releases.tick.long$lat)
-          ncvar_put(nc, var_time, rep(0, dim(releases.tick.long)[1]))
+          ncvar_put(nc, var_time, releases.tick.long$time)
           ncvar_put(nc, var_height, releases.tick.long$zagl)
           #ncvar_put(nc, var_release, rep(numpar, dim(releases.tick)[1]))
           ncvar_put(nc, var_release, releases.tick.long$release) # if these are all to be a part of the same release
