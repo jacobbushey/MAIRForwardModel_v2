@@ -17,7 +17,8 @@
 # Configuration----------------------------------------------------------------
 
 #CONFIG=$1
-CONFIG="config_RF06_Permian.json"
+#CONFIG="config_RF06_Permian.json"
+CONFIG="config_RF08_Uinta.json"
 
 #source ~/.bashrc
 

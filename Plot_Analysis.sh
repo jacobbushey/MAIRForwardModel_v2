@@ -1,18 +1,18 @@
 #!/bin/bash
 #
-#SBATCH -J inflow_inversion
-#SBATCH -p huce_ice
+#SBATCH -J plot_analysis
+#SBATCH -p huce_cascade
 #SBATCH -c 1
-#SBATCH -t 0-48:00
-#SBATCH --mem-per-cpu 128000
+#SBATCH -t 0-2:00
+#SBATCH --mem-per-cpu 64000
 #SBATCH --constraint intel
-#SBATCH -o errors/08_inflow_inversion_%A_%a.out
-#SBATCH -e errors/08_inflow_inversion_%A_%a.err
+#SBATCH -o ./errors/plot_analysis_%A_%a.out
+#SBATCH -e ./errors/plot_analysis_%A_%a.err
 #SBATCH --mail-type=END
 
 # Usage------------------------------------------------------------------------
 
-# sbatch 08b_Boundary_Inflow_Inversion.sh
+# sbatch --array=1-[MH chains] 07a_Invert_MetropolisHastings.sh [config file]
 
 # Configuration----------------------------------------------------------------
 
@@ -46,7 +46,7 @@ function R_module() {
 }
 
 #singularity exec /n/holylfs04/LABS/wofsy_lab/Lab/jbushey/forward-model/flexpart-model-stripped/config/setenv_rocky.sh Rscript 03d_Inversion_AdaptiveMetropolis.R
-singularity exec /n/holylfs04/LABS/wofsy_lab/Everyone/geospatial_latest_0.sif Rscript 08a_Boundary_Inflow_Inversion.R $CONFIG
+singularity exec /n/holylfs04/LABS/wofsy_lab/Everyone/geospatial_latest_0.sif Rscript Plot_Analysis.R $CONFIG
 
 
 

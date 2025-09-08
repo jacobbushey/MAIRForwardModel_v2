@@ -67,23 +67,11 @@ def find(pattern, path):
 
 #path_to_file = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L3/RF06_Permian/MethaneAIR_L3_segment_20210806T161742_20210806T162243_dpp.nc"
 
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 filepath = '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L3/RF06_Permian/'
 name = 'RF06_Permian'
 
 file_list = find("*dpp_ak.nc", filepath)
 file_list.sort()
-
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-filepath = '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L3/RF08_Uinta/'
-name = 'RF08_Uinta'
-
-file_list = find("*dpp.nc", filepath)
-file_list.sort()
-
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #file_list = ['MethaneAIR_L3_segment_20210806T161742_20210806T162243_dpp_ak.nc',
 #    'MethaneAIR_L3_segment_20210806T162243_20210806T162745_dpp_ak.nc',
@@ -134,21 +122,18 @@ for i in range(len(file_list)):
     print(i)
     print(plot_name_tick)
 
-# 2025_09_05 - we don't actually have to run the background finding methods on the segments
-# so just find the time the start and end time of the collect
-
-#    options = BackgroundCalculationOptions(
-#        method=BackgroundCalculationMethod.ZSIGMA,
-#        num_samples_threshold=0.50,
-#        region_size=20,
-#        region_spacing=20,  # I thought this parameter didn't get used? Still has to be set I guess
-#    #    dbscan_max_cluster_size=5e5,
-#    #    dbscan_min_cluster_size=1e4,
-#    #    dbscan_max_cluster_size=5e3,  # this doesn't seem to make any difference
-#    #    dbscan_min_cluster_size=1e2,
-#        plot_dir="/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/MAIRForwardModel_v2/background",
-#        plot_name=plot_name_tick
-#    )
+    options = BackgroundCalculationOptions(
+        method=BackgroundCalculationMethod.ZSIGMA,
+        num_samples_threshold=0.50,
+        region_size=20,
+        region_spacing=20,  # I thought this parameter didn't get used? Still has to be set I guess
+    #    dbscan_max_cluster_size=5e5,
+    #    dbscan_min_cluster_size=1e4,
+    #    dbscan_max_cluster_size=5e3,  # this doesn't seem to make any difference
+    #    dbscan_min_cluster_size=1e2,
+        plot_dir="/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/MAIRForwardModel_v2/background",
+        plot_name=plot_name_tick
+    )
 
     # changing the local_valid_fraction threshold didn't change anything
     # changing num_samples_threshold didn't change anything about this (why?)
@@ -156,44 +141,45 @@ for i in range(len(file_list)):
     # WHY AM I GETTING MORE ERRORS AND A DIFFERENT OFFSET TODAY? THE FILE IS THE SAME RIGHT?
     # DIFFERENCE IN WHETHER I CHANGED SZA OR NOT?
 
-    #result, analytics = estimate_background_for_l3(filepath_tick, options)
+    result, analytics = estimate_background_for_l3(filepath_tick, options)
+    # result, analytics = estimate_background_for_l3(path_to_file, options)
 
-    #result_name_tick = plot_name_tick + '_result.csv'
-    #analytics_name_tick = plot_name_tick + '_analytics.csv'
+    #result_mean = result.mean
+    #result_std = result.std
 
-    #result_new = [result.mean, result.std]
-    #analytics_new = [
-    #    [analytics.background_candidates],
-    #    [analytics.background_candidate_statistic],
-    #    [analytics.background_candidate_p_values],
-    #    [analytics.background_candidate_calculated_standard_deviation],
-    #    [analytics.mean_albedo],
-    #    [analytics.mean_sza],
-    #    [analytics.cluster_densities],
-    #    [analytics.cluster_sizes],
-    #    [analytics.largest_cluster_sizes],
-    #    [analytics.best_bgs]
-    #]
+    result_name_tick = plot_name_tick + '_result.csv'
+    analytics_name_tick = plot_name_tick + '_analytics.csv'
+
+    result_new = [result.mean, result.std]
+    analytics_new = [
+        [analytics.background_candidates],
+        [analytics.background_candidate_statistic],
+        [analytics.background_candidate_p_values],
+        [analytics.background_candidate_calculated_standard_deviation],
+        [analytics.mean_albedo],
+        [analytics.mean_sza],
+        [analytics.cluster_densities],
+        [analytics.cluster_sizes],
+        [analytics.largest_cluster_sizes],
+        [analytics.best_bgs]
+    ]
 
     nc_file = Dataset(filepath_tick, 'r')
     time_coverage_start = nc_file.time_coverage_start
     time_coverage_end = nc_file.time_coverage_end
     nc_file.close()
 
-    #with open(result_name_tick, mode = 'w', newline = '') as f:
-    #    writer = csv.writer(f)
-    #    writer.writerow(result_new)
+    with open(result_name_tick, mode = 'w', newline = '') as f:
+        writer = csv.writer(f)
+        writer.writerow(result_new)
 
-    #with open(analytics_name_tick, mode = 'w', newline = '') as f:
-    #    writer = csv.writer(f)
-    #    writer.writerow(analytics_new)
+    with open(analytics_name_tick, mode = 'w', newline = '') as f:
+        writer = csv.writer(f)
+        writer.writerow(analytics_new)
 
     # Adds the output to a growing list for all segments that will be saved at the end
     #results.append([file_tick, time_coverage_start, time_coverage_end, result.mean, result.std])
-
-# 2025_09_04 - now we don't have result.mean and result.std
-#    results.append([plot_name_tick, time_coverage_start, time_coverage_end, result.mean, result.std])
-    results.append([plot_name_tick, time_coverage_start, time_coverage_end])
+    results.append([plot_name_tick, time_coverage_start, time_coverage_end, result.mean, result.std])
 
 filename = name + '_background_results.csv'
 with open(filename, mode = 'w', newline = '') as f:

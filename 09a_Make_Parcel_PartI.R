@@ -50,12 +50,6 @@ output.dir <- paste0(
         config$scene$name, '/'
 )
 
-obs.filepath <- paste0(
-       config$dir_root,
-       config$inputs$l3$dir_l3,
-       config$input$l3$filename_l3
-)
-
 name <- paste0(
         config$scene$name
 )
@@ -80,6 +74,8 @@ flight.name <- paste0(
 )
 
 remove.point.sources <- config$scene$remove_point_sources
+do.clustering <- config$scene$do_clustering
+instrument <- config$scene$instrument
 
 # Load the ssec color scheme
 source("/n/home03/jbushey/R/ssec.R") 
@@ -192,6 +188,7 @@ set.mean <- 0
 
 n_x <- ncol(K_domain)
 m_y <- nrow(K_domain)
+# 2025_08_15
 #n_x <- ncol(K_total)
 #m_y <- nrow(K_total)
 #n_x <- ncol(K)
@@ -205,7 +202,8 @@ m_y <- nrow(K_domain)
 
 #most.important.df <-  most.important.df %>% dplyr::select(c('lon', 'lat', 'vals'))
 
-#emitters.total.df <- rbind(domain.df, inflow.df.eliminate)
+# 2025_08_15
+emitters.total.df <- rbind(domain.df, inflow.df.eliminate)
 
 # Initialize a distance matrix for Q, the covariance matrix for emissions --------------------
 
@@ -248,11 +246,16 @@ for(cell.tick in 1:n_x) {
 # Apply the reflection to solve the symmetry
 distmat_Q <- distmat_Q + t(distmat_Q)
 
-l_Q <- 10 # setting 10 km as the covariance lengthscale
+# 2025_08_15
+l_Q <- 1
+#l_Q <- 10 # setting 10 km as the covariance lengthscale
 #l_Q <- 5   # setting 5 km as the covariance lengthscale in order to improve conditioning of C_0
 #l_Q <- 100
+#l_Q <- 2
 
+# C_0_domain <- exp(-distmat_Q / l_Q)
 C_0 <- exp(-distmat_Q / l_Q)
+C_0_domain <- C_0
 # C <- diag(n_x)
 
 # Equivalent:
@@ -265,20 +268,106 @@ C_0 <- exp(-distmat_Q / l_Q)
 
 
 
+# 2025_07_22 - make sure I'm indexing this correctly here
+# 2025_08_15 - commented out
+
+distmat_Q_inflow <-
+  matrix(
+    nrow = nrow(inflow.df.eliminate),
+    ncol = nrow(inflow.df.eliminate),
+    data = 0
+  )
+
+# Loop through receptors and measure the distance to all others
+#pb <- txtProgressBar(min = 0, max = 10, initial = 0, style = 3)
+for(cell.tick in 1:nrow(inflow.df.eliminate)) {
+  distmat_Q_inflow[cell.tick, cell.tick:nrow(inflow.df.eliminate)] <-
+    sp::spDistsN1(
+      pts =
+        cbind(
+#          as.numeric(domain.df$lon[cell.tick:n_x]),
+#          as.numeric(domain.df$lat[cell.tick:n_x])
+#          as.numeric(emitters.df$lon[cell.tick:n_x]),
+#          as.numeric(emitters.df$lat[cell.tick:n_x])
+#          as.numeric(emitters.total.df$lon[cell.tick:nrow(emitters.total.df)]),
+#          as.numeric(emitters.total.df$lat[cell.tick:nrow(emitters.total.df)])
+          as.numeric(inflow.df.eliminate$lon[cell.tick:nrow(inflow.df.eliminate)]),
+          as.numeric(inflow.df.eliminate$lat[cell.tick:nrow(inflow.df.eliminate)])
+        ),
+      pt =
+        cbind(
+#          as.numeric(domain.df$lon[cell.tick]),
+#          as.numeric(domain.df$lat[cell.tick])
+#          as.numeric(emitters.df$lon[cell.tick]),
+#          as.numeric(emitters.df$lat[cell.tick])
+#          as.numeric(emitters.total.df$lon[cell.tick]),
+#          as.numeric(emitters.total.df$lat[cell.tick])
+          as.numeric(inflow.df.eliminate$lon[cell.tick]),
+          as.numeric(inflow.df.eliminate$lat[cell.tick])
+        ),
+      longlat = TRUE
+    )
+#  setTxtProgressBar(pb, cell.tick)
+}
+#close(pb)
+
+# Apply the reflection to solve the symmetry
+#big_mat <- big_mat + t(big_mat)
+distmat_Q_inflow <- distmat_Q_inflow + t(distmat_Q_inflow)
+
+#C_0_big_mat <- exp(-big_mat / 10)
+C_0_inflow <- exp(-distmat_Q_inflow / 10)
 
 
-big.mat <-
+#big_mat <-
+#  matrix(
+#    nrow = nrow(emitters.total.df),
+#    ncol = nrow(emitters.total.df),
+#    data = 0
+#  ) 
+big_mat <-
   diag(
     1,   
     nrow = dim(K_total)[2],
     ncol = dim(K_total)[2],
 )
 
-big.mat[1:dim(C_0)[1], 1:dim(C_0)[1]] <- C_0 
 
-C_0 <- big.mat
+# Add the covariance matrix for the domain into the upper left of the matrix
+#big_mat[1:dim(C_0_domain)[1], 1:dim(C_0_domain)[1]] <- C_0_domain 
+
+# Add the covariance matrix for the inflow into the bottom right of the matrix
+#big_mat[
+#  (dim(C_0_domain)[1] + 1):dim(big_mat)[1], 
+#  (dim(C_0_domain)[1] + 1):dim(big_mat)[1]
+#  ] <- C_0_inflow
+
+#C_0_big_mat[1:dim(C_0)[1], 1:dim(C_0)[1]] <- C_0       
+
+#C_0 <- C_0_big_mat
+
+# This way, the inflow is highly correlated, the domain is not,
+# and the inflow and domain are not correlated with each other.
+C_0 <- big_mat
 
 
+
+#C_0 <-
+#  diag(
+#    1,
+#    nrow = dim(K_total)[2],
+#    ncol = dim(K_total)[2]
+#  )
+
+
+
+
+#C_0_inflow <-
+#  diag(
+#    1,
+#    nrow = dim(K_inflow_small)[2],
+#    ncol = dim(K_inflow_small)[2]
+#  )
 
 
 
@@ -322,7 +411,10 @@ for(cell.tick in 1:m_y) {
 # Apply the reflection to solve the symmetry
 distmat_V <- distmat_V + t(distmat_V)
 
-l_V <- 1 # setting 1 km as the covariance lengthscale
+l_V <- 0.5 # setting 0.5 km as the covariance lengthscale 
+  # 2025_09_05 - doing this because of smaller observation grid cell sizes
+
+#l_V <- 1 # setting 1 km as the covariance lengthscale
   # residual = -0.7
 #l_V <- 2  # residual = -2.22
 #l_V <- 3  # residual ~= 4 or so? (forgot to save it)
@@ -335,11 +427,76 @@ l_V <- 1 # setting 1 km as the covariance lengthscale
 # UNCERTAINTY SHOULD BE BIGGER
 # PROPAGATE STANDARD DEVIATION THROUGH?
 
-C_epsilon <- exp(-distmat_V / l_V)
+#C_epsilon <- exp(-distmat_V / l_V)
+C_epsilon_V <- exp(-distmat_V / l_V)
 
 #rm(
 #  distmat_V
 #)
+
+
+
+
+# Create a temporal covariance matrix for the observations -------------------
+
+distmat_T <-
+  matrix(
+    nrow = m_y,
+    ncol = m_y,
+    data = 0
+  )
+
+# Loop through receptors and measure the temporal distance to all others
+#pb <- txtProgressBar(min = 0, max = 10, initial = 0, style = 3)
+for(cell.tick in 1:m_y) {
+  #distmat_T[cell.tick, cell.tick:m_y] <-
+
+    # 2025_07_17 - RIGHT NOW THERE IS NO "DOMAIN.DF$MID.TIME" variable
+
+    # Thanks to ChatGPT for help with this
+    #times <- domain.df$mid.time[cell.tick:n_x]
+    #reference_time <- domain.df$mid.time[cell.tick]
+    times <- plot.df.agg$time[cell.tick:m_y]
+    reference_time <- plot.df.agg$time[cell.tick]
+
+    differences <- as.numeric(abs(difftime(times, reference_time, units = "secs")))
+   #print(dim(differences))
+#    print(max(times))
+#    print(reference_time)
+#    print(max(differences))
+
+    distmat_T[cell.tick, cell.tick:m_y] <- differences
+
+
+}
+# Apply the reflection to solve the symmetry
+distmat_T <- distmat_T + t(distmat_T)
+
+l_T <- 1  # setting 1 second as the covariance lengthscale
+#l_T <- 1 * 60 # setting 1 minute as the covariance lengthscale
+#l_T <- 3 * 60 # Michael found the correlation decay parameter to be ~3 mins
+
+C_epsilon_T <- exp(-distmat_T / l_T)
+
+# 2025_09_06
+C_epsilon_T <- C_epsilon_T / 4
+diag(C_epsilon_T) <- 1
+
+# NOTE 2025_07_11 - pay attention to whether it makes more sense
+# to use seconds or minutes as the unit for time
+# One may be more stable than the other
+
+
+
+#C_epsilon <- C_epsilon_T %*% C_epsilon_V
+
+C_epsilon <- C_epsilon_T * C_epsilon_V
+  # why is temporal covariance necessary to make the system positive definite?
+
+#C_epsilon <- C_epsilon_V
+  # minor of order ... is not positive definite
+
+
 
 print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 print("Begin singular value decomposition for C_0.")
@@ -375,6 +532,26 @@ print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 C_0_inv <- chol2inv(chol(C_0))
 #C_0_inv <- solve(C_0)
   # 2025_05_23
+
+# 2025_07_30
+#x_candidate <- as.matrix(x_candidate)
+#  x_candidate_domain <- x_candidate[1:(n_x-true.number.of.clusters)]
+#  x_candidate_inflow <- x_candidate[(n_x-true.number.of.clusters+1):n_x]
+
+# C_0_inv_domain <- 
+#  chol2inv(
+#    chol(
+#      C_0_domain
+#      #C_0[1:((ncol(K_total))-true.number.of.clusters), 1:((ncol(K_total))-true.number.of.clusters)]
+#    )
+#  )
+
+# C_0_inv_inflow <-
+#  chol2inv(
+#    chol(
+#      C_0_inflow
+#    )
+#  )
 
 #rm(
 #  svd_decomp,
@@ -442,8 +619,8 @@ print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 #C_epsilon_inv <- C_epsilon_pseudo_inverse
 
 # 2025_05_23 - this is causing a misallocation of memory (unsorted?) and core dump
-   C_epsilon_inv <- chol2inv(chol(C_epsilon))
-  #C_epsilon_inv <- solve(C_epsilon)
+C_epsilon_inv <- chol2inv(chol(C_epsilon))
+#C_epsilon_inv <- solve(C_epsilon)
 
 #rm(
 #  svd_decomp,
@@ -508,6 +685,7 @@ save(
   domain.idx,
 #  K,
   K_domain,
+  K_inflow_small,
   K_total,
   output.dir,
   y_obs,
@@ -525,10 +703,18 @@ save(
   l_Q,
   C_0,
   C_0_inv,
+#  C_0_domain,
+#  C_0_inv_domain,
+#  C_0_inflow,
+#  C_0_inv_inflow,
   distmat_V,
   l_V,
+  C_epsilon_V,
+  C_epsilon_T,
   C_epsilon,
   C_epsilon_inv,
+  true.number.of.clusters,
+  approx.number.of.clusters,
 #  file_includes,
 #  set.mean,
 #  n_x,
@@ -537,12 +723,68 @@ save(
 #  sigma_epsilon_current,
 #  a,
 #  b
-  file = paste0('09a_', flight.name, '_Parcel_PartI.RData')
+  file = paste0('09_', flight.name, '_Parcel_PartI.RData')
 )
 
 print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 print("Parcel complete! Merry Christmas!")
 print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+
+
+
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+print("Making sanity check plots of the covariance matrices.")
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+
+
+temp.rast <- terra::rast(C_epsilon_T)
+png(paste0(plots.dir, paste0(name, '_sanity_check_C_epsilon_T.png')), width = 4, height = 4, units = "in", res = 180)
+plot(
+  temp.rast,
+  main = "C_epsilon_T",
+  xlab = "i",
+  ylab = "j",
+)
+dev.off()
+
+temp.rast <- terra::rast(C_epsilon_V)
+png(paste0(plots.dir, paste0(name, '_sanity_check_C_epsilon_V.png')), width = 4, height = 4, units = "in", res = 180)
+plot(
+  temp.rast,
+  main = "C_epsilon_V",
+  xlab = "i",
+  ylab = "j",
+)
+dev.off()
+
+
+
+
+temp.rast <- terra::rast(C_epsilon)
+png(paste0(plots.dir, paste0(name, '_sanity_check_C_epsilon.png')), width = 4, height = 4, units = "in", res = 180)
+plot(
+  temp.rast,
+  main = "C_epsilon",
+  xlab = "i",
+  ylab = "j",
+)
+dev.off()
+
+
+
+temp.rast <- terra::rast(C_0)
+png(paste0(plots.dir, paste0(name, '_sanity_check_C_0.png')), width = 4, height = 4, units = "in", res = 180)
+plot(
+  temp.rast,
+  main = "C_0",
+  xlab = "i",
+  ylab = "j",
+)
+dev.off()
+
+
 
 
 

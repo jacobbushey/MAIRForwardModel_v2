@@ -115,6 +115,8 @@ flight.name <- paste0(
         config$scene$name
 )
 
+do.clustering <- config$scene$do_clustering
+
 # Configuration --------------------------------------------------------------
 # The bash scrip that runs this code calls the appropriate configuration file for the flight being analyzed.
 
@@ -131,29 +133,26 @@ setwd(output.dir)
 
 
 
-load(paste0('09a_', flight.name ,'_Parcel_PartI.RData'))
-load(paste0('09c_', flight.name ,'_Parcel_PartII.RData'))
+load(paste0('09_', flight.name ,'_Parcel_PartI.RData'))
+load(paste0('10_', flight.name ,'_Parcel_PartII.RData'))
 
-#load('MSAT_005_Permian_Parcel_2025_05_11.RData')
-#load('MSAT_005_Permian_Parcel_PartII_2025_05_11.RData')
+  # load('MSAT_005_Permian_Parcel_2025_05_11.RData')
+  # load('MSAT_005_Permian_Parcel_PartII_2025_05_11.RData')
 
-# My suspicion is that things that fail on an interactive node
-# because of ill conditioned matrices
-# do fine when submitted to SLURM. I wonder why?
+  # Things that fail on an interactive node
+  # because of ill conditioned matrices
+  # do fine when submitted to SLURM. I wonder why?
 
-# So note to self - if the queue is bogged down or the cluster
-# is undergoing maintenance, don't stress yourself out unncessarily working on this problem!
-
-
+  # So note to self - if the queue is bogged down or the cluster
+  # is undergoing maintenance, don't stress yourself out unncessarily working on this problem!
 
 
-
-# if you're running the OSSE, overwrite Parcel_PartII and y_obs
-#if(OSSE_SWITCH == TRUE){
-#if(TRUE){
-#  load(paste0(flight.name ,'_Parcel_PartII_Zero.RData'))
-#  y_obs <- rep(0, length(y_obs))
-#}
+  # if you're running the OSSE, overwrite Parcel_PartII and y_obs
+  # if(OSSE_SWITCH == TRUE){
+  # if(TRUE){
+  #  load(paste0(flight.name ,'_Parcel_PartII_Zero.RData'))
+  #  y_obs <- rep(0, length(y_obs))
+  # }
 
 # Set variables and functions you'll be using ---------------------------------------------
 
@@ -171,44 +170,18 @@ print('chol_solve() step complete')
 print(Sys.time())
 
 # set the mean of your prior distribution such that it is effectively zero.
-# errors occured when set.mean = 0, and could not be equal to g (below).
-#set.mean <- 1e-8
+  # errors occured when set.mean = 0, and could not be equal to g (below).
+  #set.mean <- 1e-8
 set.mean <- 0
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+# 2025_07_31 - this is different than how it's defined in 
+# script 09a. That's necessary, but need to get definition straight.
 
 #n_x <- ncol(K_domain)
 #m_y <- nrow(K_domain)
 n_x <- ncol(K_total)
 m_y <- nrow(K_total)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #n_x <- ncol(K)
 #m_y <- nrow(K)
@@ -217,43 +190,31 @@ m_y <- nrow(K_total)
 
 # XX 2025_05_07 - keep in mind that this should be in ppm now
 # or at least will converge to a value of ppm, and need to be multiplied by 1000
-sigma_epsilon_current <- 11
-#sigma_epsilon_current <- 11/1000  # uncertainty of the observations in ppm
-#sigma_0_current <- 1.0e-3    # uncertainty of the emission rates in kg km^{-2} s^{-1}
-  # ^ I'm not sure that the above has the correct units
-#sigma_0_current <- 1.0e-5
-#sigma_0_current <- 0.025
+
+sigma_epsilon_current <- 0.005   # 2025_07_22 - based on the convergence of MSAT_005
+
 sigma_0_current <- 100
   # NOTE: on 2025_06_17 I made this orders of magnitude too low and it gave a poor residual
-
+#sigma_0_current <- 100 / 25   # this is if you're doing per km^2
 
 a <- 0
 b <- 0
 
 accepted_x <- list()
-#accepted_x[[1]] <- x_prior
+# accepted_x_inflow <- list()
 accepted_sigma_epsilon <- list()
 accepted_sigma_0 <- list()
 mean_residual_tracker <- list()
 stdev_residual_tracker <- list()
 
 counter <- 2
-#anticounter <- 0
-#mcmc_tick <- 1
 
-#x_current <- rep(set.mean, n_x)
-#x_current <- rep(1e-7, n_x)
-#x_current <- rep(1e-6, n_x)  # XX 2025_04_29
-#x_current <- rep(1e-3, n_x)  # XX 2025_06_17
-#x_current <- rep(0.025, n_x)
 x_current <- rep(100, n_x)
-#x_current <- rep(1e-9, n_x)
-# 2025_05_13
-#x_current <- rep(1e-5, n_x)
-#x_current <- rep(1e-7, n_x)
-#x_current <- rep(1e-10)
+#x_current <- rep(100 / 25, n_x)  # this is if you're doing per km^2
+# x_current_inflow <- rep(100, true.number.of.clusters)
 
 accepted_x[[1]] <- x_current
+# accepted_x_inflow[[1]] <- x_current_inflow
 accepted_sigma_epsilon[[1]] <- sigma_epsilon_current
 accepted_sigma_0[[1]] <- sigma_0_current
 
@@ -296,81 +257,184 @@ print(Sys.time())
 
 sink(output_bounce_file)   # THIS NEW LINE MIGHT MAKE SOME OF THE OTHER LINES REDUNDANT, PRINTING TO OUTPUT FILE
 
+#big_matrix <- C_0_inv / (10000 ^ 2)
+
+
+
+
+
+
+
+
+
+
+# while(counter <= 100){
+#
+#  x0 <- rep(set.mean, true.number.of.clusters)  # SHOULD THIS BE A REPEATED NUMBER OR A NORMAL DISTRIBUTION?
+#
+#  S0_inv <- C_0_inv_inflow / ( sigma_0_current ^ 2 )
+#
+#  S_hat_inv <- ( Kt_K_inflow / sigma_epsilon_current ^ 2 ) + S0_inv
+#
+#  chol_S_hat_inv <- chol(S_hat_inv)
+#
+#  x_hat <- as.vector(chol_solve(
+#    chol_S_hat_inv,
+#    Kt_y_obs_inflow / sigma_epsilon_current ^ 2
+#  ))
+#
+#  g <- rep(-1e-10, true.number.of.clusters) # making g tiny and not quite zero allows for small negative fluxes but avoids errors
+#
+#  x_candidate <- sample_truncated_gaussian_hmc_diag_F(
+#    #x0 = rep(set.mean, n_x),
+#    x_initial = x_current_inflow,
+#    mu = x_hat,
+#    R = chol_S_hat_inv,
+#    #F = F,
+#    g = g,
+#    bounce_limit = 100000,
+#    tolerance = 1e-12,  # helps determine when the bounces stop
+#    #tolerance = 1e-10,   # XX 2025_04_29
+#    total_time = pi/2,
+#    #nSamples = 10000,
+#    n_samples = 1,
+#    debug = TRUE
+#  )
+#
+#  mean.of.x.candidate <- mean(x_candidate)
+#  median.of.x.candidate <- median(x_candidate) 
+#  mean.inflow.concentration <- mean(K_inflow_small %*% x_candidate)
+#
+#  a_candidate_epsilon <- a + m_y/2
+#  b_candidate_epsilon <- b + 0.5 * t(y_obs - K_inflow_small %*% x_candidate) %*% C_epsilon_inv %*% (y_obs - K_inflow_small %*% x_candidate)
+#
+#  sigma_epsilon_candidate <- b_candidate_epsilon / rgamma(1, a_candidate_epsilon)
+#  sigma_epsilon_candidate <- sqrt(as.numeric(sigma_epsilon_candidate))
+#
+#  a_candidate_0 <- a + n_x/2
+#  b_candidate_0 <- b + 0.5 * t(x_candidate) %*% C_0_inv_inflow %*% x_candidate
+#
+#  sigma_0_candidate <- b_candidate_0 / rgamma(1, a_candidate_0)
+#  sigma_0_candidate <- sqrt(as.numeric(sigma_0_candidate))
+#
+#
+#
+#  # Store all of them for the next time
+#  accepted_x_inflow[[counter]] <- x_candidate
+#  #accepted_sigma_epsilon[[counter]] <- sigma_epsilon_candidate
+#  #accepted_sigma_0[[counter]] <- sigma_0_candidate
+#
+#  # Update the parameters
+#  sigma_epsilon_current <- sigma_epsilon_candidate
+#  sigma_0_current <- sigma_0_candidate
+#
+#  x_current_inflow <- x_candidate
+#
+#  counter <- counter + 1
+#
+#  print(counter)
+#  print(Sys.time())
+#
+#
+#  cat(
+#    paste0(
+#      "\n",
+#      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+#      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+#      "\nLoop number ", counter,
+#      "\n------------------------------------------------",
+#      "\nsigma_0:", sigma_0_candidate, " kg/hr",
+#      "\nsigma_epsilon:", sigma_epsilon_candidate, " ppm (x1e3 for ppb)",
+#      "\n------------------------------------------------",
+#      "\nmean of x_candidate: ", mean.of.x.candidate, " kg/hr",
+#      "\n------------------------------------------------",
+#      "\nmedian of x_candidate: ", median.of.x.candidate, " kg/hr",
+#      "\n------------------------------------------------",
+#      "\nMean of y_obs: ", mean(y_obs), " ppm (x1e3 for ppb)",
+#      "\nMean of inflow concentration: ", mean.inflow.concentration, " ppm (x1e3 for ppb)",
+#      #"\nMean residual for x_candidate: ", mean_residual_tracker[[counter]], " ppb",
+#      #"\nMedian residual for x_candidate: ", median.residual, " ppb",
+#      #"\nStdev residual for x_candidate: ", stdev_residual_tracker[[counter]], " ppb",
+#      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+#      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+#      "\n"
+#    ),
+#    file=output_stats_file, append=TRUE
+#  )
+#
+#}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 while(counter <= n_loops){
 
-#  sink(output_bounce_file)   # THIS NEW LINE MIGHT MAKE SOME OF THE OTHER LINES REDUNDANT, PRINTING TO OUTPUT FILE
-
   # Construct prior mean and covariance for x
-  x0 <- rep(set.mean, n_x)  # SHOULD THIS BE A REPEATED NUMBER OR A NORMAL DISTRIBUTION?
-  # Inverse of the prior covariance. Here, a diagonal matrix, implying no prior
-  # covariance between grid cells
+  x0 <- rep(set.mean, n_x) 
  
-  # If you're running locally: 
-#  S0_inv <- solve(C_0) / ( sigma_0_current ^ 2 )
-  # If you're running on the cluster:
+    # If you're running locally: 
+      # S0_inv <- solve(C_0) / ( sigma_0_current ^ 2 )
+    #  Attempted on 2025_07_22 - wasn't useful
+    #  little_matrix <- C_0_inv[1:n_x, 1:n_x] / ( sigma_0_current ^ 2 )
+    #  big_matrix <- C_0_inv / (1000000 ^ 2)
+    #  big_matrix[1:n_x, 1:n_x] <- little_matrix
+    #  S0_inv <- big_matrix
+
   S0_inv <- C_0_inv / ( sigma_0_current ^ 2 )
 
-  # Note: sigma_epsilon swaps in for sigr, which was based on the observational error
-  # sigma_0 swaps in for the x_prior_stdev
+    # Note: sigma_epsilon swaps in for sigr, which was based on the observational error
+    # sigma_0 swaps in for the x_prior_stdev
 
-  # If you're running locally:
-#  S_hat_inv <- ( Kt_K / sigma_epsilon_current ^ 2 ) + ( solve(C_0) / (sigma_0_current ^ 2 ) ) 
-    # the second statement is just S0_inv
-  # If you're running on the cluster:
-  S_hat_inv <- ( Kt_K / sigma_epsilon_current ^ 2 ) + ( C_0_inv / (sigma_0_current ^ 2 ) )
+    # If you're running locally:
+    # S_hat_inv <- ( Kt_K / sigma_epsilon_current ^ 2 ) + ( solve(C_0) / (sigma_0_current ^ 2 ) ) 
+      # the second statement is just S0_inv
+  
+      # 2025_07_30 - I see now, this is why the change above to S0_inv made no difference in the inversion results
+      # When you control+F for it, you'll see that it has no other uses in this script. Weird?
+
+  S_hat_inv <- ( Kt_K / sigma_epsilon_current ^ 2 ) + S0_inv
 
   chol_S_hat_inv <- chol(S_hat_inv)
-  # XX when y_obs = 0, after the first loop iteration you get errors here b/c of singular matrices
+    # XX when y_obs = 0 for an OSSE, after the first loop iteration you get errors here b/c of singular matrices
 
   x_hat <- as.vector(chol_solve(
     chol_S_hat_inv,
     Kt_y_obs / sigma_epsilon_current ^ 2
   ))
-  # Made this change b/c S_hat_inv isn't positive semidefinite, so can't use chol()
-  # Error in chol.default(S_hat_inv) : 
-  # the leading minor of order 31 is not positive definite
- # x_hat <- as.vector(
- #   solve(S_hat_inv,
- #   Kt_y_obs / sigma_epsilon_current ^ 2)
- # )
-  # XX it works, but is it right? And is it always necessary?
+    # Made this change b/c S_hat_inv isn't positive semidefinite, so can't use chol()
+    # Error in chol.default(S_hat_inv) : 
+    # the leading minor of order 31 is not positive definite
+    # x_hat <- as.vector(
+    #   solve(S_hat_inv,
+    #   Kt_y_obs / sigma_epsilon_current ^ 2)
+    # )
+    # XX it works, but is it right? And is it always necessary?
 
   # F <- as(Matrix::Diagonal(n_x), 'generalMatrix')
   g <- rep(-1e-10, n_x) # making g tiny and not quite zero allows for small negative fluxes but avoids errors
     # could be moved outside of loop but really wouldn't improve time
 
-  # TROUBLESHOOTING TO FIGURE OUT WHY IT FAILED
-  #n <- length(x_current)
-  ##g_prime <- g + mu
-  #g_prime <- g + x_hat
-  ##x_initial_prime <- as.vector(R %*% (x_initial - mu))
-  #x_initial_prime <- as.vector(chol_S_hat_inv %*% (x_current - x_hat))
+    # 2025_07_22 NOTE:
+    # If you get this error:
 
-  ##F_prime <- t(backsolve(R, diag(n), transpose = TRUE))
-  #F_prime <- t(backsolve(chol_S_hat_inv, diag(n), transpose = TRUE))
-  #F_prime_norm <- rowSums(F_prime ^ 2)
+    # Error in sample_truncated_gaussian_hmc_diag_F(x_initial = x_current, mu = x_hat,  : 
+    #  Initial point is not in the constrained set
 
-  ##c <- as.vector(backsolve(R, x_initial_prime) + g_prime)
-  #c <- as.vector(backsolve(chol_S_hat_inv, x_initial_prime) + g_prime)
-  #print(paste0('min of c: ', min(c)))
+    # It's because the sampler will work in a slurm job but not an interactive one
+    # I'm not sure why. 
 
-  # c <- solve(S_hat_inv, x_initial_prime) + g_prime
-  # Is this a viable alternative? Not sure it matters, still produces negative values
-  # Why is this problem so ill-conditioned? Just so many large matrices?
-
-  # c seems perpetually stuck at this value:
-  # "min of c: -0.00182061116178776"
-  # Which causes the sampler to fail
-  # This doesn't happen on my personal computer
-  # And it's unresponsive to changes in sigma_epsilon_current and sigma_0_current
-  # Should I use SVD for this step as well?
-  # I don't think so, because I'm not inverting a matrix
-  # I'm solving directly for S_hat_inv
-
-#  sink()
-
-#  sink(bounce_file_name)
-  
+  print('TEST 1')
+ 
   x_candidate <- sample_truncated_gaussian_hmc_diag_F(
     #x0 = rep(set.mean, n_x),
     x_initial = x_current,
@@ -387,73 +451,122 @@ while(counter <= n_loops){
     debug = TRUE
   )
 
-#  sink()
+  print('TEST 2')
 
-#  sink(output_file_name)
 
+  # 2025_07_22 - MAKE SURE THE +1 IS IN THE RIGHT SPOT
   x_candidate <- as.matrix(x_candidate)
+  x_candidate_domain <- x_candidate[1:(n_x-true.number.of.clusters)]
+  x_candidate_inflow <- x_candidate[(n_x-true.number.of.clusters+1):n_x]
 
-  mean_x_candidate <- mean(x_candidate)
-  print(paste0('Mean of x_candidate: ', mean_x_candidate))
+  mean.of.x.candidate <- mean(x_candidate)
+  print(paste0('Mean of x_candidate: ', mean.of.x.candidate))
+  mean.of.x.candidate.domain <- mean(x_candidate_domain)
+  print(paste0('Mean of x_candidate_domain: ', mean.of.x.candidate.domain))
+  mean.of.x.candidate.inflow <- mean(x_candidate_inflow)
+  print(paste0('Mean of x_candidate_inflow: ', mean.of.x.candidate.inflow))
 
-  #mean_residual <- mean((K_domain %*% x_candidate) - y_obs*1e3)
+  print('TEST 3')
+
+
+  median.of.x.candidate <- median(x_candidate)
+  print(paste0('Median of x_candidate: ', median.of.x.candidate))
+  median.of.x.candidate.domain <- median(x_candidate_domain)
+  print(paste0('Median of x_candidate_domain: ', median.of.x.candidate.domain))
+  median.of.x.candidate.inflow <- median(x_candidate_inflow)
+  print(paste0('Median of x_candidate_inflow: ', median.of.x.candidate.inflow))
+
   mean_residual <- mean(((K_total %*% x_candidate) - y_obs)*1e3)
-#  mean_residual <- mean(((K_total %*% x_candidate) - y_obs))
-  #mean_residual <- mean((K %*% x_candidate) - y_obs)
-  #print(paste0('Mean residual for x_candidate: ', mean_residual))
   mean_residual_tracker[[counter]] <- mean_residual 
   print(paste0('Mean residual for x_candidate: ', mean_residual_tracker[[counter]]))
+
+  print('TEST 4')
+
 
   median.residual <- median(((K_total %*% x_candidate) - y_obs)*1e3)
   print(paste0('Median residual for x_candidate: ', median.residual))
 
-  #stdev_residual <- sd((y_obs - K_domain %*% x_candidate)*1e3)
   stdev_residual <- sd((y_obs - K_total %*% x_candidate)*1e3)
-#  stdev_residual <- sd((y_obs - K_total %*% x_candidate))
-  #stdev_residual <- sd(y_obs - K %*% x_candidate)
   stdev_residual_tracker[[counter]] <- stdev_residual
   print(paste0('Stdev residual for x_candidate: ', stdev_residual_tracker[[counter]]))  
 
-  mean.of.x.candidate <- mean(x_candidate)
-  median.of.x.candidate <- median(x_candidate)
-
   a_candidate_epsilon <- a + m_y/2
-  #b_candidate_epsilon <- b + 0.5 * t(y_obs - K_domain %*% x_candidate) %*% C_epsilon_inv %*% (y_obs - K_domain %*% x_candidate)
+    #b_candidate_epsilon <- b + 0.5 * t(y_obs - K_domain %*% x_candidate) %*% C_epsilon_inv %*% (y_obs - K_domain %*% x_candidate)
+
   b_candidate_epsilon <- b + 0.5 * t(y_obs - K_total %*% x_candidate) %*% C_epsilon_inv %*% (y_obs - K_total %*% x_candidate)
-  #b_candidate_epsilon <- b + 0.5 * t(y_obs - K %*% x_candidate) %*% C_epsilon_inv %*% (y_obs - K %*% x_candidate)
+    # 2025_07_30
+    #b_candidate_epsilon <- b + 0.5 * t(y_obs - K_domain %*% x_candidate_domain) %*% C_epsilon_inv %*% (y_obs - K_domain %*% x_candidate_domain)
+
+    #b_candidate_epsilon <- b + 0.5 * t(y_obs - K %*% x_candidate) %*% C_epsilon_inv %*% (y_obs - K %*% x_candidate)
   sigma_epsilon_candidate <- b_candidate_epsilon / rgamma(1, a_candidate_epsilon)
   sigma_epsilon_candidate <- sqrt(as.numeric(sigma_epsilon_candidate))
 
-  # Note: sigma_epsilon is WAY too big. That's the model data mismatch, so the model is completely defaulting to the prior
-  # Note: sigma_0 is WAY too low. That's the prior error, so it's just defaulting to my prior
-
   a_candidate_0 <- a + n_x/2
-  # If you're running locally:
-#  b_candidate_0 <- b + 0.5 * t(x_candidate) %*% solve(C_0) %*% x_candidate
-  # If you're running on the cluster:
+    # If you're running locally:
+    #  b_candidate_0 <- b + 0.5 * t(x_candidate) %*% solve(C_0) %*% x_candidate
+  
   b_candidate_0 <- b + 0.5 * t(x_candidate) %*% C_0_inv %*% x_candidate
+    # 2025_07_30
+    # b_candidate_0 <- b + 0.5 * t(x_candidate_domain) %*% C_0_inv_domain %*% x_candidate_domain
+
   sigma_0_candidate <- b_candidate_0 / rgamma(1, a_candidate_0)
   sigma_0_candidate <- sqrt(as.numeric(sigma_0_candidate))
 
+  mean.inflow.concentration <- mean(K_inflow_small %*% x_candidate_inflow)
+  mean.domain.concentration <- mean(K_domain %*% x_candidate_domain)
+  mean.modeled.concentration <- mean(K_total %*% x_candidate)
+
+  print('TEST 5')
+
+
   # Print output so you can monitor it
-  print(paste0("sigma_0:", sigma_0_candidate))
-  print(paste0("sigma_epsilon:", sigma_epsilon_candidate))
-  print(paste0("mean of x_candidate: ", mean.of.x.candidate))
-  print(paste0("median of x_candidate: ", median.of.x.candidate))
+  print(paste0("sigma_0:", sigma_0_candidate, " kg/hr"))
+  print(paste0("sigma_epsilon:", sigma_epsilon_candidate, " ppm (x1e3 for ppb)"))
+  print(paste0("mean of x_candidate: ", mean.of.x.candidate, " kg/hr"))
+  print(paste0("mean of x_candidate_domain: ", mean.of.x.candidate.domain, " kg/hr"))
+  print(paste0("mean of x_candidate_inflow: ", mean.of.x.candidate.inflow, " kg/hr"))
+  print(paste0("median of x_candidate: ", median.of.x.candidate, " kg/hr"))
+  print(paste0("median of x_candidate_domain: ", median.of.x.candidate.domain, " kg/hr"))
+  print(paste0("median of x_candidate_inflow: ", median.of.x.candidate.inflow, " kg/hr"))
+
+  time.track <- Sys.time()
 
   cat(
     paste0(
+      "\n",
+      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       "\nLoop number ", counter,
-      "\nsigma_0:", sigma_0_candidate, 
-      "\nsigma_epsilon:", sigma_epsilon_candidate, 
-      "\nmean of x_candidate: ", mean.of.x.candidate,
-      "\nmedian of x_candidate: ", median.of.x.candidate,
-      "\nMean residual for x_candidate: ", mean_residual_tracker[[counter]],
-      "\nMedian residual for x_candidate: ", median.residual,
-      "\nStdev residual for x_candidate: ", stdev_residual_tracker[[counter]]
+      "\n", time.track,
+      "\n------------------------------------------------",
+      "\nsigma_0:", sigma_0_candidate, " kg/hr",
+      "\nsigma_epsilon:", sigma_epsilon_candidate, " ppm (x1e3 for ppb)",
+      "\n------------------------------------------------", 
+      "\nmean of x_candidate: ", mean.of.x.candidate, " kg/hr", 
+      "\nmean of x_candidate_domain: ", mean.of.x.candidate.domain, " kg/hr",
+      "\nmean of x_candidate_inflow: ", mean.of.x.candidate.inflow, " kg/hr",
+      "\n------------------------------------------------",
+      "\nmedian of x_candidate: ", median.of.x.candidate, " kg/hr",
+      "\nmedian of x_candidate_domain: ", median.of.x.candidate.domain, " kg/hr",
+      "\nmedian of x_candidate_inflow: ", median.of.x.candidate.inflow, " kg/hr",
+      "\n------------------------------------------------",
+      "\nMean of y_obs: ", mean(y_obs), " ppm (x1e3 for ppb)",
+      "\nMean of modeled concentration: ", mean.modeled.concentration, " ppm (x1e3 for ppb)",
+      "\nMean residual for x_candidate: ", mean_residual_tracker[[counter]], " ppb",
+      "\nMedian residual for x_candidate: ", median.residual, " ppb",
+      "\nStdev residual for x_candidate: ", stdev_residual_tracker[[counter]], " ppb",
+      "\n------------------------------------------------",
+      "\nMean inflow concentration: ", mean.inflow.concentration, " ppm (x1e3 for ppb)",
+      "\nMean domain concentration: ", mean.domain.concentration, " ppm (x1e3 for ppb)",
+      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "\n"
     ), 
     file=output_stats_file, append=TRUE
   )
+
+  print('TEST 6')
+
 
   # Store all of them for the next time
   accepted_x[[counter]] <- x_candidate
@@ -496,16 +609,17 @@ while(counter <= n_loops){
         byrow = TRUE
       )
 
-    #setwd(local.output.dir)
-    #setwd(output.dir)
-    #save(set.mean,
-    #  accepted_mat,
-    #  accepted_sigma_epsilon_mat,
-    #  accepted_sigma_0_mat,
-    #  #K_domain,
-    #  K_total,
-    #  file = paste0('10_', flight.name, '_',  sprintf("%004d", counter), '_HMC_Output.RData')
-    #)
+    # Print intermediate output in case script gets interupted or crashes
+    # This is important for how long this inversion takes!
+    setwd(output.dir)
+    save(set.mean,
+      accepted_mat,
+      accepted_sigma_epsilon_mat,
+      accepted_sigma_0_mat,
+      #K_domain,
+      K_total,
+      file = paste0('11_', flight.name, '_',  sprintf("%004d", counter), '_HMC_Output.RData')
+    )
   }
   counter <- counter + 1
   print(counter)
@@ -554,7 +668,7 @@ save(set.mean,
   #K,
   mean_residual_tracker,
   stdev_residual_tracker,
-  file = paste0('10_', flight.name, '_HMC_Output.RData'))
+  file = paste0('11_', flight.name, '_HMC_Output.RData'))
 
 print('Inversion via HMC is complete!')
 

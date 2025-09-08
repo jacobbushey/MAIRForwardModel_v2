@@ -34,21 +34,26 @@ output.dir <- paste0(
         config$scene$name
 )
 
-#mosaic.dir <- paste0(
-#        config$dir_root,
-#        config$inputs$l3_mosaic$dir_l3,
-#        config$scene$name
-#)
-#l3.dir <- paste0(
-#        config$dir_root,
-#        config$inputs$l3$dir_l3,
-#        config$scene$name
-#)
-
 l3.dir <- paste0(
   config$dir_root,
   config$inputs$l3$dir_l3,
   config$inputs$l3$filename_l3
+)
+
+l3.mosaic.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3_mosaic$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
+scene.name <- paste0(
+        config$scene$name
+)
+
+
+l2.dir <- paste0(
+  '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L2/',
+  config$scene$name
 )
 
 scene.name <- paste0(
@@ -238,9 +243,9 @@ system('mkdir part_ic_dir')
 # There are 526 releases per layer
 
 #columns.per.brick <- 1000
-columns.per.brick <- 100
+#columns.per.brick <- 100
 #columns.per.brick <- 500 # XX 2025_03_20
-
+columns.per.brick <- 25
 
 releases.per.brick <- columns.per.brick * layers.per.column * releases.per.layer
 

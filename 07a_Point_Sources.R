@@ -36,10 +36,26 @@ output.dir <- paste0(
         config$scene$name, '/'
 )
 
-obs.filepath <- paste0(
-       config$dir_root,
-       config$inputs$l3$dir_l3,
-       config$input$l3$filename_l3
+l3.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
+l3.mosaic.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3_mosaic$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
+scene.name <- paste0(
+        config$scene$name
+)
+
+
+l2.dir <- paste0(
+  '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L2/',
+  config$scene$name
 )
 
 name <- paste0(

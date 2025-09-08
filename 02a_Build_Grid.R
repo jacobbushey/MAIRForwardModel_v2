@@ -23,7 +23,7 @@ library(lubridate)
 library(mnormt, lib = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Inverse_Analysis/Scripts/Rlib")
 library(concaveman, lib = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Inverse_Analysis/Scripts/Rlib")
 library(V8, lib = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Inverse_Analysis/Scripts/Rlib")
-library(OpenImageR, lib = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/MSATForwardModel/Rlib")
+#library(OpenImageR, lib = "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/MSATForwardModel/Rlib")
 
 # For the applyFocalSums function:
 source('/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model/MAIRForwardModel/plume_assessment_scripts.r')
@@ -73,7 +73,7 @@ plots.dir <- paste0(
 )
 
 
-topo.filepath <- obs.filepath
+#topo.filepath <- obs.filepath
   # XX 2025_05_10 just using apriori_data/xch4 from the L3 files
 
 # Set the name of the flight
@@ -119,6 +119,7 @@ l2.dir <- paste0(
 # Set variables of interest
 l3.mosaic.file <- list.files(path = l3.mosaic.dir, pattern = "(.nc)$")
 
+# 2025_07_11 AM I EVEN USING THESE VARIABLES ANYMORE???
 xres <- paste0(
         config$inversion$res_deg
 ) %>% as.numeric()
@@ -142,8 +143,14 @@ numsamples_threshold <- 0.75
 #resolution           <- 0.02  # resolution of the observations, not the inversion
 resolution           <- 0.01
 #resolution           <- 0.05
-valid_fraction       <- 0.5
 
+#valid_fraction       <- 0.5
+valid_fraction        <- 0.2
+  # 2025_09_02
+  # For some reason when I amend the files to add the new prior, it won't work to aggregate with
+  # valid fraction = 50%. Is it because of the segments being small? But it was working before.
+  # Or because of how I'm setting up the new prior?
+  # Regardless, seems like 20% works. Will need to investigate further.
 
 
 #max.dist <- paste0(
@@ -353,16 +360,38 @@ og.plot.rast.agg <- mair.xch4.rast.agg
 
 
 # Read in the "results" csv with the background offset
+# 2025_08_29 - Read the background from the MSAT equivalent evaluation of the scene
 bg_list <- read.csv(
+  paste0(
+    '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/MSATForwardModel/background/MAIR_',
+    scene.name, '_background_results.csv'
+  )
+)
+
+bg_offset <- bg_list$mean
+
+
+# 2025_08_29 - Read the prior from the MSAT equivalent evaluation as well (or just the mosaic I guess)
+# May want to evaluate to see how well the non-mosaic prior does
+# Maybe it does better than the mosaic prior.
+# Resampling prior would be a pain in the neck
+# But also the prior only changes every 3 hours, so picking just one prior should suffice.
+# But running it through the LoadL3AsAggregatedRaster function would be a pain.
+
+
+bg_segment_list <- read.csv(
   paste0(
     '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/MAIRForwardModel_v2/background/',
     scene.name, '_background_results.csv'
   )
 )
 
+
+
 # Start loop through L3 files
 
-l3_files <- list.files(path = l3.dir, pattern = "(_ak.nc)$")
+# l3_files <- list.files(path = l3.dir, pattern = "(_ak.nc)$")
+l3_files <- list.files(path = l3.dir, pattern = "(_ak_new_prior.nc)$")
 setwd(l3.dir)
 
 total.xch4.df <- data.frame(matrix(nrow = 0, ncol = 3))
@@ -377,10 +406,11 @@ for (i in seq(1:length(l3_files))){
   l3_file <- l3_files[i]
   print(paste0('l3_file = ', l3_file))
 
-  bg_offset <- bg_list$mean[i]
+  # bg_offset <- bg_list$mean[i]
+  # 2025_08_29 - use the singular background offset from above
 
-  time.start.tick <- as_datetime(bg_list$time_coverage_start[i])
-  time.end.tick <- as_datetime(bg_list$time_coverage_end[i])
+  time.start.tick <- as_datetime(bg_segment_list$time_coverage_start[i])
+  time.end.tick <- as_datetime(bg_segment_list$time_coverage_end[i])
 
   mair.time.int <- interval(start = time.start.tick, end = time.end.tick)
   mair.time.length <- lubridate::time_length(mair.time.int, unit = "second")
@@ -997,106 +1027,106 @@ average.kernel.new[is.na(average.kernel.new)] <- max(average.kernel.new, na.rm =
 
 
 
-setwd(l2.dir)
-
-#file <- '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/Inputs/L2/MSAT_005/MethaneSAT_L2_post_20240911T203025_20240911T203057_manualscreen.nc'
-file <- list.files(path = l2.dir, pattern = "(.nc)$")
-
-nc_data <- nc_open(file)
-
-kernel <- ncvar_get(nc_data, varid = "co2proxy_fit_diagnostics/ch4_averaging_kernel")
-
-average.kernel <- apply(kernel, 1, mean, na.rm = TRUE)
-
-
-apriori_surface_pressure <- ncvar_get(nc_data, varid = 'apriori_data/surface_pressure')
-
-apriori_tropopause_pressure <- ncvar_get(nc_data, varid = 'apriori_data/tropopause_pressure')
-
-psurf <- mean(apriori_surface_pressure[!is.na(apriori_surface_pressure)])     # hPa
-ptrop <- mean(apriori_tropopause_pressure[!is.na(apriori_tropopause_pressure)])   # hPa
-
-p_edges <- (ap * (psurf - ptrop)) + (bp * ptrop) + cp
-
-p_levels <- array()
-for (i in c(2:20)){
-   p_levels[i-1] <- (p_edges[i-1] + p_edges[i]) / 2
-}
-
-#msat.alt <- -1 * log(rev(p_levels)/psurf) / (1.24426778e-4)
-#msat.alt <- -1 * log((p_levels)/psurf) / (1.24426778e-4)
-msat.alt.og <- -1 * log((p_levels)/psurf) / (1.24426778e-4)
-msat.alt.og.short <- msat.alt.og[1:13]
-  # equal pressure spacing in the first 13 layers
-
-#ch4_profile <- ncvar_get(nc_data, varid = "apriori_data/ch4_profile")
-#ch4_profile_pixel <- ch4_profile[ , 100, 100]
-#ch4.profile.df <- as.data.frame(cbind(rev(p_levels), rev(ch4_profile_pixel))) %>%
-#   dplyr::mutate(height = -1 * log(rev(p_levels)/psurf) / (1.24426778e-4)
-#)
-
-delta_p <- array()
-for (i in c(2:20)){
-   delta_p[i-1] <- (p_edges[i-1] - p_edges[i])
-}
-
-nc_close(nc_data)
-
-setwd(output.dir)
-#new.p <- seq(from = p_levels[1], to = p_levels[13], by = -1 * (delta_p[1] / 2))
-new.p <- seq(from = psurf - (delta_p[1] / 5), to = p_levels[10], by = -1 * (delta_p[1] / 5))
-
-#new.p <- seq(from = p_levels[1] + 1 * (delta_p[1] / 2), to = p_levels[13], by = -1 * (delta_p[1] / 2))
-  # the first level is already  1 * (delta_p[1] / 2) off of the surface,
-  # so if I take a step closer to the surface I'll be releasing emitters from the surface
-  # which isn't a good idea
-msat.alt.new <- -1 * log((new.p)/psurf) / (1.24426778e-4)
-  # XX where did this equation come from anyhow?
-
-# The spacing between the pressure levels is linear
-# Which means the spacing between altitude levels is exponential
-# We will interpolate linearly between each averaging kernel to get the
-# values at each of the new points, b/c they're assigned on the evenly
-# spaced pressure grid and there is no fit for them
-
-average.kernel.new <- array()
-count <- 1
-for (i in c(2:length(average.kernel))){
-  average.kernel.new[count] <- mean(average.kernel[i], average.kernel[i-1])
-  count <- count + 1
-}
-
-linear.interp <- stats::approx(x = p_levels, y = rev(average.kernel), xout = new.p, method = "linear")
-average.kernel.new <- linear.interp$y
-  # using this method you don't even need to shorten it, you just interpolate to the levels you want
-
-average.kernel.new[is.na(average.kernel.new)] <- 1.0547245
-  # necessary when extrapolating below averaging kernel
-
-#average.kernel <- average.kernel[1:13]
-
-
-# If using MethaneAIR data, need to feed in a list of averaging kernel values manually
-# 2025_07_11 - this is copied from the MSAT version of the script
-# but it should throw errors before you even get this far.
-
-instrument <- config$scene$instrument
-
-if (instrument == 'MAIR'){  
- 
-  # this is very back of the envelope, for RF06 only
-  weights <- c(1.05, 1.04, 1.02, 1.00, 0.98, 0.96,
-      0.94, 0.91, 0.88, 0.85, 0.80, 0.76,
-      0.47, 0.42, 0.40, 0.39, 0.37, 0.35, 0.34)
-
-  linear.interp <- stats::approx(x = p_levels, y = weights, xout = new.p, method = "linear")
-  average.kernel.new <- linear.interp$y
-    # using this method you don't even need to shorten it, you just interpolate to the levels you want
-
-  average.kernel.new[is.na(average.kernel.new)] <- weights[1]
-  # necessary when extrapolating below averaging kernel
-  
-}
+#setwd(l2.dir)
+#
+##file <- '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneSAT_Forward_Model/Inputs/L2/MSAT_005/MethaneSAT_L2_post_20240911T203025_20240911T203057_manualscreen.nc'
+#file <- list.files(path = l2.dir, pattern = "(.nc)$")
+#
+#nc_data <- nc_open(file)
+#
+#kernel <- ncvar_get(nc_data, varid = "co2proxy_fit_diagnostics/ch4_averaging_kernel")
+#
+#average.kernel <- apply(kernel, 1, mean, na.rm = TRUE)
+#
+#
+#apriori_surface_pressure <- ncvar_get(nc_data, varid = 'apriori_data/surface_pressure')
+#
+#apriori_tropopause_pressure <- ncvar_get(nc_data, varid = 'apriori_data/tropopause_pressure')
+#
+#psurf <- mean(apriori_surface_pressure[!is.na(apriori_surface_pressure)])     # hPa
+#ptrop <- mean(apriori_tropopause_pressure[!is.na(apriori_tropopause_pressure)])   # hPa
+#
+#p_edges <- (ap * (psurf - ptrop)) + (bp * ptrop) + cp
+#
+#p_levels <- array()
+#for (i in c(2:20)){
+#   p_levels[i-1] <- (p_edges[i-1] + p_edges[i]) / 2
+#}
+#
+##msat.alt <- -1 * log(rev(p_levels)/psurf) / (1.24426778e-4)
+##msat.alt <- -1 * log((p_levels)/psurf) / (1.24426778e-4)
+#msat.alt.og <- -1 * log((p_levels)/psurf) / (1.24426778e-4)
+#msat.alt.og.short <- msat.alt.og[1:13]
+#  # equal pressure spacing in the first 13 layers
+#
+##ch4_profile <- ncvar_get(nc_data, varid = "apriori_data/ch4_profile")
+##ch4_profile_pixel <- ch4_profile[ , 100, 100]
+##ch4.profile.df <- as.data.frame(cbind(rev(p_levels), rev(ch4_profile_pixel))) %>%
+##   dplyr::mutate(height = -1 * log(rev(p_levels)/psurf) / (1.24426778e-4)
+##)
+#
+#delta_p <- array()
+#for (i in c(2:20)){
+#   delta_p[i-1] <- (p_edges[i-1] - p_edges[i])
+#}
+#
+#nc_close(nc_data)
+#
+#setwd(output.dir)
+##new.p <- seq(from = p_levels[1], to = p_levels[13], by = -1 * (delta_p[1] / 2))
+#new.p <- seq(from = psurf - (delta_p[1] / 5), to = p_levels[10], by = -1 * (delta_p[1] / 5))
+#
+##new.p <- seq(from = p_levels[1] + 1 * (delta_p[1] / 2), to = p_levels[13], by = -1 * (delta_p[1] / 2))
+#  # the first level is already  1 * (delta_p[1] / 2) off of the surface,
+#  # so if I take a step closer to the surface I'll be releasing emitters from the surface
+#  # which isn't a good idea
+#msat.alt.new <- -1 * log((new.p)/psurf) / (1.24426778e-4)
+#  # XX where did this equation come from anyhow?
+#
+## The spacing between the pressure levels is linear
+## Which means the spacing between altitude levels is exponential
+## We will interpolate linearly between each averaging kernel to get the
+## values at each of the new points, b/c they're assigned on the evenly
+## spaced pressure grid and there is no fit for them
+#
+#average.kernel.new <- array()
+#count <- 1
+#for (i in c(2:length(average.kernel))){
+#  average.kernel.new[count] <- mean(average.kernel[i], average.kernel[i-1])
+#  count <- count + 1
+#}
+#
+#linear.interp <- stats::approx(x = p_levels, y = rev(average.kernel), xout = new.p, method = "linear")
+#average.kernel.new <- linear.interp$y
+#  # using this method you don't even need to shorten it, you just interpolate to the levels you want
+#
+#average.kernel.new[is.na(average.kernel.new)] <- 1.0547245
+#  # necessary when extrapolating below averaging kernel
+#
+##average.kernel <- average.kernel[1:13]
+#
+#
+## If using MethaneAIR data, need to feed in a list of averaging kernel values manually
+## 2025_07_11 - this is copied from the MSAT version of the script
+## but it should throw errors before you even get this far.
+#
+#instrument <- config$scene$instrument
+#
+#if (instrument == 'MAIR'){  
+# 
+#  # this is very back of the envelope, for RF06 only
+#  weights <- c(1.05, 1.04, 1.02, 1.00, 0.98, 0.96,
+#      0.94, 0.91, 0.88, 0.85, 0.80, 0.76,
+#      0.47, 0.42, 0.40, 0.39, 0.37, 0.35, 0.34)
+#
+#  linear.interp <- stats::approx(x = p_levels, y = weights, xout = new.p, method = "linear")
+#  average.kernel.new <- linear.interp$y
+#    # using this method you don't even need to shorten it, you just interpolate to the levels you want
+#
+#  average.kernel.new[is.na(average.kernel.new)] <- weights[1]
+#  # necessary when extrapolating below averaging kernel
+#  
+#}
 
 
 
@@ -1329,7 +1359,10 @@ save(
 #  bg_offset_max,
 #  bg_offsets,
 #  bg_offset,
-#  sds, 
+#  sds,
+  mean.background,
+  mean.xch4,
+  mean.enhancement, 
   file = paste0('02_', scene.name, '_Build_Grid_Output.RData')
 )
 

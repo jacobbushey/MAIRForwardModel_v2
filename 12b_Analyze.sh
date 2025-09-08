@@ -6,8 +6,8 @@
 #SBATCH -t 0-02:00
 #SBATCH --mem-per-cpu 128000
 #SBATCH --constraint intel
-#SBATCH -o ./errors/11_analyze_%A_%a.out
-#SBATCH -e ./errors/11_analyze_%A_%a.err
+#SBATCH -o ./errors/12_analyze_%A_%a.out
+#SBATCH -e ./errors/12_analyze_%A_%a.err
 #SBATCH --mail-type=END
 
 # Usage------------------------------------------------------------------------
@@ -17,8 +17,8 @@
 # Configuration----------------------------------------------------------------
 
 #CONFIG=$1
-#CONFIG="config_MSAT_005_Permian.json"
-CONFIG="config_MAIR_RF06_Permian.json"
+#CONFIG="config_RF06_Permian.json"
+CONFIG="config_RF08_Uinta.json"
 
 #source ~/.bashrc
 
@@ -46,7 +46,7 @@ function R_module() {
 }
 
 #singularity exec /n/holylfs04/LABS/wofsy_lab/Lab/jbushey/forward-model/flexpart-model-stripped/config/setenv_rocky.sh Rscript 03d_Inversion_AdaptiveMetropolis.R
-singularity exec /n/holylfs04/LABS/wofsy_lab/Everyone/geospatial_latest_0.sif Rscript 11a_Analyze.R $CONFIG
+singularity exec /n/holylfs04/LABS/wofsy_lab/Everyone/geospatial_latest_0.sif Rscript 12a_Analyze.R $CONFIG
 
 
 

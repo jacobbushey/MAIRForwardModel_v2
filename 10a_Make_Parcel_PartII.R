@@ -47,12 +47,6 @@ output.dir <- paste0(
         config$scene$name, '/'
 )
 
-obs.filepath <- paste0(
-       config$dir_root,
-       config$inputs$l3$dir_l3,
-       config$input$l3$filename_l3
-)
-
 name <- paste0(
         config$scene$name
 )
@@ -76,6 +70,7 @@ flight.name <- paste0(
 )
 
 remove.point.sources <- config$scene$remove_point_sources
+do.clustering <- config$scene$do_clustering
 
 # Load the ssec color scheme
 source("/n/home03/jbushey/R/ssec.R") 
@@ -94,7 +89,7 @@ print("Beginning difficult calculations")
 print("XXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
 
-load(paste0('09a_', flight.name, '_Parcel_PartI.RData'))
+load(paste0('09_', flight.name, '_Parcel_PartI.RData'))
 
 #Kt_K <- t(K_domain) %*% C_epsilon_inv %*% K_domain
 #Kt_y_obs <- t(K_domain) %*% C_epsilon_inv %*% y_obs
@@ -105,6 +100,14 @@ load(paste0('09a_', flight.name, '_Parcel_PartI.RData'))
 
 Kt_K <- t(K_total) %*% C_epsilon_inv %*% K_total
 Kt_y_obs <- t(K_total) %*% C_epsilon_inv %*% y_obs
+
+#Kt_K_domain <- t(K_domain) %*% C_epsilon_inv %*% K_domain
+#Kt_y_obs_domain <- t(K_domain) %*% C_epsilon_inv %*% y_obs
+
+#Kt_K_inflow <- t(K_inflow_small) %*% C_epsilon_inv %*% K_inflow_small
+#Kt_y_obs_inflow <- t(K_inflow_small) %*% C_epsilon_inv %*% y_obs
+
+
 
 #Kt_K <- t(K) %*% C_epsilon_inv %*% K
 #Kt_y_obs <- t(K) %*% C_epsilon_inv %*% y_obs
@@ -124,6 +127,7 @@ save(
   #domain.idx, 
   #K, 
   K_domain, 
+#  K_inflow_small,
   K_total,
   #output.dir, 
   #y_obs,
@@ -145,6 +149,11 @@ save(
   #C_epsilon_inv,
   Kt_K,
   Kt_y_obs,
+#  Kt_K_domain,
+#  Kt_y_obs_domain,
+#  Kt_K_inflow,
+#  Kt_y_obs_inflow,
+
 #  set.mean,
 #  n_x,
 #  m_y,
@@ -152,7 +161,7 @@ save(
 #  sigma_epsilon_current,
 #  a,
 #  b
-  file = paste0('09c_', flight.name, '_Parcel_PartII.RData')
+  file = paste0('10_', flight.name, '_Parcel_PartII.RData')
 )
 
 print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")

@@ -40,10 +40,26 @@ output.dir <- paste0(
         config$scene$name, '/'
 )
 
-obs.filepath <- paste0(
-       config$dir_root,
-       config$inputs$l3$dir_l3,
-       config$input$l3$filename_l3
+l3.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
+l3.mosaic.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3_mosaic$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
+scene.name <- paste0(
+        config$scene$name
+)
+
+
+l2.dir <- paste0(
+  '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L2/',
+  config$scene$name
 )
 
 name <- paste0(
@@ -71,6 +87,9 @@ flight.name <- paste0(
 
 
 
+aspect.ratio.x <- as.numeric(config$scene$plot.xdim)
+aspect.ratio.y <- as.numeric(config$scene$plot.ydim)
+aspect.ratio <- c(aspect.ratio.x, aspect.ratio.y)
 
 
 setwd(output.dir)
@@ -107,7 +126,7 @@ particles.per.column <- 1e4
 mass.per.column <- 1e6
 
 #layers.per.column <- 19
-layers.per.column <- length(msat.alt.new)
+layers.per.column <- length(alt.new)
   # just doing the 13 lowest layers to not waste particles in upper atmosphere
 #receptors.per.column <- layers.per.column
 
@@ -127,8 +146,9 @@ mass.per.release <- mass.per.layer / releases.per.layer
 
 
 #columns.per.brick <- 1000
-columns.per.brick <- 100
+#columns.per.brick <- 100
 #columns.per.brick <- 500 # XX 2025_03_20
+columns.per.brick <- 25
 
 
 releases.per.brick <- columns.per.brick * layers.per.column * releases.per.layer
@@ -179,18 +199,38 @@ for (j in c(1:loop_length)){
 #  K.log.ppm.micromol.m2.s1
 
 
+#  print(paste0('Adding jacobian #', j , ' to the total Jacobian'))
+#  if(j < loop_length){
+#    row.idx <- seq(from = (j-1)*(brick_size)+1, to = (j-1)*(brick_size)+brick_size, by = 1)
+#    total.jacobian.ppm.kg.m2.s1[row.idx, ] <- K.ppm.kg.m2.s1
+#    total.jacobian.ppm.micromol.m2.s1[row.idx, ] <- K.ppm.micromol.m2.s1
+#    total.jacobian.log.ppm.micromol.m2.s1[row.idx, ] <- K.log.ppm.micromol.m2.s1
+#  }else{
+#    row.idx <- seq(from = (j-1)*(brick_size)+1, to = (j-1)*(brick_size)+(n%%brick_size), by = 1)
+#    total.jacobian.ppm.kg.m2.s1[row.idx, ] <- K.ppm.kg.m2.s1
+#    total.jacobian.ppm.micromol.m2.s1[row.idx, ] <- K.ppm.micromol.m2.s1
+#    total.jacobian.log.ppm.micromol.m2.s1[row.idx, ] <- K.log.ppm.micromol.m2.s1
+#  }
+
+  # 2025_09_04 - based on similar changes to the MethaneSAT scripts
   print(paste0('Adding jacobian #', j , ' to the total Jacobian'))
   if(j < loop_length){
-    row.idx <- seq(from = (j-1)*(brick_size)+1, to = (j-1)*(brick_size)+brick_size, by = 1)
+    #row.idx <- seq(from = (j-1)*(brick_size)+1, to = (j-1)*(brick_size)+brick_size, by = 1)
+    row.idx <- c(((j-1)*(brick_size)+1) : ((j-1)*(brick_size)+brick_size))
     total.jacobian.ppm.kg.m2.s1[row.idx, ] <- K.ppm.kg.m2.s1
     total.jacobian.ppm.micromol.m2.s1[row.idx, ] <- K.ppm.micromol.m2.s1
     total.jacobian.log.ppm.micromol.m2.s1[row.idx, ] <- K.log.ppm.micromol.m2.s1
   }else{
-    row.idx <- seq(from = (j-1)*(brick_size)+1, to = (j-1)*(brick_size)+(n%%brick_size), by = 1)
+    row.idx <- c(((j-1)*(brick_size)+1) : ((j-1)*(brick_size)+(n%%brick_size)))
+      # Unclear why, but this version produces fewer errors than seq()
+    #row.idx <- seq(from = (j-1)*(brick_size)+1, to = (j-1)*(brick_size)+(n%%brick_size), by = 1)
     total.jacobian.ppm.kg.m2.s1[row.idx, ] <- K.ppm.kg.m2.s1
     total.jacobian.ppm.micromol.m2.s1[row.idx, ] <- K.ppm.micromol.m2.s1
     total.jacobian.log.ppm.micromol.m2.s1[row.idx, ] <- K.log.ppm.micromol.m2.s1
+      # Note: will the log Jacobian will produce NA values b/c of zeros
   }
+
+
   print(paste0('Completed processing file ', j , ' out of ', loop_length))
   # XX why did line 96 not print??? 4/10/2025
 
@@ -238,8 +278,102 @@ save(
   file = paste0('06_', flight.name,'_Total_Jacobian_Output.RData')
 )
 
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 print("Finished constructing Jacobian and saving variables!")
 # XX Why did this line not print, even tho the script ran to completion?
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+print("Making some sanity check plots to make sure the Jacobian looks good")
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+
+sum <- colSums(total.jacobian.ppm.kg.m2.s1)
+emitters.df <- emitters.df %>%
+  dplyr::mutate(
+    sum.over.obs = sum,
+    ppb.sum.over.obs = sum * 1000,
+    log.sum.over.obs = log10(ppb.sum.over.obs)
+  )
+
+# Plot the combined sum over the obs
+ggplot() +
+  geom_raster(data = emitters.df, mapping = aes(x = lon, y = lat, fill = ppb.sum.over.obs)) +
+  scale_fill_viridis(
+    option = 'D',
+    #name = 'Sum'
+    name = 'ppb/(kg/hr)'
+  ) +
+  ggtitle(paste0(name, '\nSum Over Obs')) +
+  theme(plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(colour = 'black'),
+    axis.text.y = element_text(colour = 'black')) +
+  labs(x = 'Longitude') +
+  labs(y = 'Latitude') +
+  theme(text = element_text(size = 20, colour = 'black'),
+    axis.text.x = element_text(colour = 'black'),
+    axis.text.y = element_text(colour = 'black')) +
+  theme(panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.line = element_line(colour = 'black'))
+ggsave(
+  filename = paste0(plots.dir, paste0(name, '_sanity_check_sum_over_obs.png')),
+  device = png,
+  width = aspect.ratio[1],
+  height = aspect.ratio[2],
+  units = "in"
+)
+
+
+
+sum <- rowSums(total.jacobian.ppm.kg.m2.s1)
+plot.df.agg <- plot.df.agg %>%
+  dplyr::mutate(
+    sum.over.emitters = sum,
+    ppb.sum.over.emitters = sum * 1000
+  )
+
+# Plot the combined sum over the emitters
+ggplot() +
+  geom_raster(data = plot.df.agg, mapping = aes(x = lon, y = lat, fill = ppb.sum.over.emitters)) +
+  scale_fill_viridis(
+    option = 'D',
+    #name = 'Sum'
+    name = 'ppb/(kg/hr)'
+  ) +
+  ggtitle(paste0(name, '\nSum Over Emitters')) +
+  theme(plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(colour = 'black'),
+    axis.text.y = element_text(colour = 'black')) +
+  labs(x = 'Longitude') +
+  labs(y = 'Latitude') +
+  theme(text = element_text(size = 20, colour = 'black'),
+    axis.text.x = element_text(colour = 'black'),
+    axis.text.y = element_text(colour = 'black')) +
+  theme(panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.line = element_line(colour = 'black'))
+ggsave(
+  filename = paste0(plots.dir, paste0(name, '_sanity_check_sum_over_emitters.png')),
+  device = png,
+  width = aspect.ratio[1],
+  height = aspect.ratio[2],
+  units = "in"
+)
+
+
+
+
+
+
+
+
+
 
 
 

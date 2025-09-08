@@ -264,9 +264,12 @@ outlon1 <- flex.xmax
 outlat0 <- flex.ymin
 outlat1 <- flex.ymax
 
-
-dxout <- 0.05
-dyout <- 0.05
+# 2025_07_14 SWITCHING TO 0.02 X 0.02 DEGREES FOR METHANE AIR
+# SHOULD CHANGE THIS SO THAT IT ISN'T HARD CODED
+dxout <- 0.02
+dyout <- 0.02
+#dxout <- 0.05
+#dyout <- 0.05
 
 numxgrid <- (outlon1 - outlon0) / dxout
 numygrid <- (outlat1 - outlat0) / dyout
@@ -389,8 +392,11 @@ releases.per.column <- releases.per.layer * layers.per.column
 
 
 #columns.per.brick <- 1000
-columns.per.brick <- 100
+#columns.per.brick <- 100
 #columns.per.brick <- 500 # XX 2025_03_20
+
+# Chaning to 25 to accomodate higher resolution for MethaneAIR
+columns.per.brick <- 25
 
 
 releases.per.brick <- columns.per.brick * layers.per.column * releases.per.layer

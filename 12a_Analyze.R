@@ -76,11 +76,14 @@ flight.name <- paste0(
         config$scene$name
 )
 
+instrument <- config$scene$instrument
 remove.point.sources <- config$scene$remove_point_sources
+epsg_code <- config$scene$epsg_code
+do.clustering <- config$scene$do_clustering
+do.buffering <- config$scene$do_buffering
 
 # Load the ssec color scheme
 source("/n/home03/jbushey/R/ssec.R")
-
 
 
 
@@ -142,6 +145,10 @@ source("/n/home03/jbushey/R/ssec.R")
 #  receptors_surface <- dplyr::arrange(receptors_surface, ymd_hms)
 #}
 
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+print('Loading necessary data files')
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+
 # Load the necessary data from previous scripts
 setwd(output.dir)
 load(paste0('08_', flight.name, '_Boundary_Inflow_Inversion.RData'))
@@ -152,9 +159,13 @@ if(remove.point.sources == 'yes'){
   load(paste0('07_', flight.name, '_Point_Sources.RData'))
 }
 
-load(paste0('09a_', flight.name, '_Parcel_PartI.RData'))
+load(paste0('09_', flight.name, '_Parcel_PartI.RData'))
 #load(paste0(flight.name, '_0500_HMC_Output.RData'))
-load(paste0('10_', flight.name, '_HMC_Output.RData'))
+load(paste0('11_', flight.name, '_HMC_Output.RData'))
+
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+print('Done loading necessary data files')
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 
 # Set variables you'll be using ---------------------------------------------
 
@@ -186,6 +197,33 @@ grid.size.df <- terra::as.data.frame(grid.size.rast, xy = TRUE) %>% dplyr::arran
 
 xres <- config$inversion$res_deg
 yres <- config$inversion$res_deg
+
+# 2025_08_06
+# Make a new resmple grid at the resolution of the inversion
+# Resample the crop rast to match it.
+# Crop the emissions accordingly.
+
+#crop.rast <- terra::rast(crop.rast.df, type = 'xyz')
+#ext(crop.rast) <- ext(msat.ext)
+#crs(crop.rast) <- "+proj=longlat"
+
+#resample.grid.rast <- terra::rast(
+#  matrix(
+#    nrow = (resample.grid.ymax - resample.grid.ymin) / yres,
+#    ncol = (resample.grid.xmax - resample.grid.xmin) / xres
+#  ),
+#  ext = resample.grid.ext,
+#  crs = "+proj=longlat"
+#)
+
+#crop.rast.resample <- terra::resample(crop.rast, resample.grid.rast)
+
+# for later
+# domain.rast <- terra::rast(domain.df, type = 'xyz')
+
+# domain.rast.ext <- terra::extend(domain.rast, crop.rast.resample)
+
+# domain.rast.crop <- terra::crop(domain.rast.ext, crop.rast.resample, mask = TRUE)
 
 # THIS IS REDUNDANT RIGHT? I DON'T NEED TO REDEFINE IT
 # DO NOT OVERWRITE Y_OBS FROM EARLIER FILES
@@ -245,11 +283,20 @@ x_2.5th_percentile <-
 x_97.5th_percentile <- 
   apply(x_posterior_samples, 2, quantile, probs = 0.975, na.rm = T)
 
+# 2025_07_19
+# Identify the last ~100 emission estimates as belonging to the inflow (for MAIR)
+# or the last ~200 emissions for MSAT (approx number b/c we eliminated clusters of 1)
+x_posterior_inflow <- x_posterior_total[(length(x_posterior)+1):length(x_posterior_total)]
+
 # Conver the units of x_posterior from kg m^{-2} s^{-1} to kg km^{-2} hr^{-1}
 #emiss.est <- (x_posterior
 #              * 3600              # converts 1/s to 1/hr
 #              * (1000 * 1000)     # converts 1/m^2 to 1/km^2
 #)
+
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+print('Calculating emission estimates')
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 
 emiss.est.kg.hr <- x_posterior
 
@@ -299,6 +346,11 @@ emiss.est.stdev.kg.hr.km2 <- (
   x_posterior_stdev *
   (1 / grid.size.df$area)
 )
+
+
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+print('Setting up plot.df.agg')
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 
 
 #total.residual.df <- emitter.obs.df %>% dplyr::mutate(lyr.1 = residual)
@@ -403,10 +455,22 @@ if (remove.point.sources == 'yes'){
   #  point.source.enhancement.df$xch4
   conc <- (K_domain %*% x_posterior)*1e3 + plot.df.agg$background  +
     point.source.enhancement.df$xch4
+  modeled.inflow <- (K_inflow_small %*% x_posterior_inflow)*1e3 + plot.df.agg$background
 }
 if (remove.point.sources == 'no'){
-  #conc <- (K_domain %*% x_posterior)*1e3 + total.conc.df$background
-    conc <- (K_domain %*% x_posterior)*1e3 + plot.df.agg$background
+  # conc <- (K_domain %*% x_posterior)*1e3 + total.conc.df$background
+  # conc <- (K_domain %*% x_posterior)*1e3 + plot.df.agg$background
+    # 2025_07_30 - not sure why I was ever just using K_domain... but that doesn't include inflow
+  conc <- (K_total %*% x_posterior_total)*1e3 + plot.df.agg$background
+
+
+  if (do.clustering == 'yes'){
+    modeled.inflow <- (K_inflow_small %*% x_posterior_inflow)*1e3 + plot.df.agg$background
+  }  
+  if (do.clustering == 'no'){
+    modeled.inflow <- (K_inflow_eliminate_sorted %*% x_posterior_inflow)*1e3 + plot.df.agg$background
+  }
+
 }
 
 #total.conc.df <- total.conc.df %>% 
@@ -418,13 +482,35 @@ if (remove.point.sources == 'no'){
 #  dplyr::mutate(modeled.conc = conc) %>%
 #  dplyr::mutate(modeled.enhancement = modeled.conc - total.conc.df$background)
 plot.df.agg <- plot.df.agg %>%
-  dplyr::mutate(modeled.conc = conc) %>%
-  dplyr::mutate(modeled.enhancement = modeled.conc - plot.df.agg$background)
+  dplyr::mutate(
+    modeled.conc = conc,
+    modeled.enhancement = modeled.conc - plot.df.agg$background,
+    modeled.inflow.conc = modeled.inflow,
+    modeled.inflow.enhancement = modeled.inflow - plot.df.agg$background,
+    modeled.domain.enhancement = modeled.enhancement - modeled.inflow.enhancement
+)
 #colnames(total.conc.df) <- c('lon', 'lat', 'xch4', 'residual', 'background', 'modeled.conc', 'modeled.enhancement')
 
+if (do.clustering == 'yes'){
+  inflow.df.eliminate <- inflow.df.eliminate %>% 
+    dplyr::mutate(
+      emiss.est.kg.hr = rep(x_posterior_inflow, times = as.numeric(table(inflow.df.eliminate$vals))),
+      emiss.est.kg.hr.scaled = rep((x_posterior_inflow * group_size), times = as.numeric(group_size))
+    )
+}
 
+if (do.clustering == 'no'){
+  inflow.df.eliminate <- inflow.df.eliminate %>%
+    dplyr::mutate(
+      emiss.est.kg.hr = x_posterior_inflow
+    )
+}
 
 # [2] Add emissions estimates to emitters.df ------------------------------------
+
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+print('Setting up the domain.df')
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 
 # add the emissions estimate to the dataframe
 domain.df <- domain.df %>%
@@ -442,6 +528,12 @@ domain.df <- domain.df %>%
 
 # convert the data frame to a raster, which has the native resolution of the FLEXPART run (0.1 x 0.1 deg)
 emitters.rast <- terra::rast(domain.df, type = "xyz", crs = "+proj=longlat")	# still kg/hr/km^2
+
+#emitters.rast.ext <- terra::extend(domain.rast, crop.rast.resample)
+
+#emitters.rast.crop <- terra::crop(emitters.rast.ext, crop.rast.resample, mask = TRUE)
+
+#emitters.rast <- emitters.rast.crop
 
 # XX 2025_05_02 NOT SURE IF THIS IS NECESSARY ANYMORE
 # disaggregate by a factor of 10 to get 0.01 x 0.01 deg resolution.
@@ -508,29 +600,83 @@ mair.xch4.rast <- terra::rast(plot.df.agg, type = "xyz", crs = "+proj=longlat")
 
 
 
+# 2025_08_06 - put "if buffering" here, rather than 08a - so I have it in case I want it.
+  # putting it in both places in case I need to revive it 
 
+if (do.buffering == 'yes'){
 
-# Buffer inwards 10 km to the reported domain
-# Filter for local emissions
-sel_reported <-
-  as.logical(
-    sp::point.in.polygon(
-      point.x = domain.df$lon,
-      point.y = domain.df$lat,
-      #pol.x = hull_inward_wgs84[,1],
-      #pol.y = hull_inward_wgs84[,2]
-      pol.x <- hull.coords.df$lon,
-      pol.y <- hull.coords.df$lat
+#   2025_07_31 - THIS WILL NEED TO BE EDITTED FOR MAIR, WHICH HAS NO ASSOCIATED GEOJSON
+#   2025_08_06 - this is no longer necessary, as I'm cropping with a mask above
+    # this approach to cropping with the geojson wasn't working
+    # So now I will put below that geojson.df <- domain.df
+    # just so I can keep the variable
+
+#   if (instrument == 'MSAT'){
+#    # Crop by geojson before cropping the edge
+#    sel_geojson <-
+#      as.logical(
+#        sp::point.in.polygon(
+#          point.x = domain.df$lon,
+#          point.y = domain.df$lat,
+#          pol.x = geojson.coords.df$lon,
+#          pol.y = geojson.coords.df$lat
+#        )
+#      )
+#
+#    geojson.idx <- sel_geojson
+#    geojson.df <- domain.df[geojson.idx, ]
+#  }
+
+#  if (instrument == 'MAIR'){
+#    geojson.df <- domain.df
+#  }
+
+  # 2025_08_07
+  geojson.df <- domain.df
+
+  # Buffer inwards 10 km to the reported domain
+  # Filter for local emissions
+  sel_reported <-
+    as.logical(
+      sp::point.in.polygon(
+        #point.x = domain.df$lon,
+        #point.y = domain.df$lat,
+        point.x = geojson.df$lon,
+        point.y = geojson.df$lat,
+        #pol.x = hull_inward_wgs84[,1],
+        #pol.y = hull_inward_wgs84[,2]
+        pol.x = hull.coords.df$lon,
+        pol.y = hull.coords.df$lat
+      )
     )
-  )
 
-reported.idx <- sel_reported
-#inflow.idx <- !sel_local
+  # Can't use point.in.polygon to crop by the geojson. Have to use raster crop
+  # Why does cropping by hull.coords.df and geojson.df give the same result? 
 
-reported.df <- domain.df[reported.idx, ]
-#inflow.df <- emitters.df[inflow.idx, ]
+  reported.idx <- sel_reported
+  #inflow.idx <- !sel_local
+  
+  reported.df <- geojson.df[reported.idx, ]
+  #reported.df <- domain.df[reported.idx, ]
+  #inflow.df <- emitters.df[inflow.idx, ]
+
+  # 2025_07_21 - I'm calculating this correctly but haven't yet used it to
+  # crop x_total_samples. I need to do that.
+
+}
 
 
+
+if (do.buffering == 'no'){
+
+  geojson.df <- domain.df
+
+  # reported.idx <- rep(1, nrows(geojson.df))
+  reported.idx <- seq(from = 1, to = nrow(geojson.df), by = 1)
+
+  reported.df <- geojson.df
+
+}
 
 
 
@@ -576,7 +722,10 @@ colnames(all.samples.df.new) <- c('X', 'Y', as.character(c(1:(dim(all.samples.df
 all.samples.df.short <- all.samples.df.new %>% dplyr::select(as.character(c(1:(dim(all.samples.df.new)[2]-2))))
 all.samples.mat <- as.matrix(all.samples.df.short)[ , c(100:dim(all.samples.df.short)[2])]
   # XX 2025_05_07 NEED TO APPLY THE BURN-IN PERIOD OF THE FIRST 100 SAMPLES
-x_total_samples <- matrixStats::colSums2(all.samples.mat)
+
+# x_total_samples <- matrixStats::colSums2(all.samples.mat)
+x_total_samples <- matrixStats::colSums2(all.samples.mat[reported.idx,])
+
 proposal.sd <- sd(x_total_samples)
 
 
@@ -616,9 +765,16 @@ colnames(stdev.df.new) <- c('lon', 'lat', 'stdev')
 
 # Calculate some key statistics ------------------------------------------------------
 
-total.emissions <- format(round(sum(reported.df$emiss.est.kg.hr), 3), nsmall = 3)
-#total.emissions <- format(round(mean(x_total_samples), 3), nsmall = 3)
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+print('Calculate the key mean statistics')
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+
+#total.emissions <- format(round(sum(reported.df$emiss.est.kg.hr), 3), nsmall = 3)
+total.emissions <- format(round(mean(x_total_samples), 3), nsmall = 3)
   # should be normally distributed, so mean = median. This will be true if you do a proper burn-in period
+
+# THE STATISTIC ABOVE IS CALCULATED USING THE REPORTED DOMAIN ONLY
+# THAT'S WHY IT'S LOWER THAN THE NUMBERS REPORTED HERE
 total.emissions.2.5th <- format(round(quantile(x_total_samples, 0.025), 3), nsmall = 3)
 total.emissions.97.5th <- format(round(quantile(x_total_samples, 0.975), 3), nsmall = 3)
 
@@ -677,6 +833,10 @@ mean.modeled.conc <- format(round(mean(plot.df.agg$modeled.conc), 3), nsmall = 3
 mean.observations <- format(round(mean(plot.df.agg$xch4), 3), nsmall = 3)
 mean.modeled.enhancement <- format(round(mean(plot.df.agg$modeled.enhancement), 3), nsmall = 3)
 mean.background <- format(round(mean(plot.df.agg$background), 3), nsmall = 3)
+mean.modeled.inflow.conc <- format(round(mean(plot.df.agg$modeled.inflow.conc), 3), nsmall = 3)
+mean.modeled.inflow.enhancement <- format(round(mean(plot.df.agg$modeled.inflow.enhancement), 3), nsmall = 3)
+mean.modeled.domain.enhancement <- format(round(mean(plot.df.agg$modeled.domain.enhancement), 3), nsmall = 3)
+
 
 if(remove.point.sources == 'yes'){
   mean.point.source <- format(round(mean(point.source.enhancement.df$xch4), 3), nsmall = 3)
@@ -697,10 +857,11 @@ if(remove.point.sources == 'yes'){
 
 ##test <- K[ , 100] * (1000 / Phi)  
 
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+print('Saving output')
+print('XXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 
-
-
-save.image(paste0('11_', flight.name, '_Analysis_Output.RData'))
+save.image(paste0('12_', flight.name, '_Analysis_Output.RData'))
 # See Josh's script 06c for how to restrict the domain myself
 
 

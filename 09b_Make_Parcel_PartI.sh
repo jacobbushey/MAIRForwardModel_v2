@@ -17,11 +17,8 @@
 # Configuration----------------------------------------------------------------
 
 #CONFIG=$1
-#CONFIG="config_MSAT_005_Permian.json"
-#CONFIG="config_MSAT_196_Canterbury.json"
-#CONFIG="config_MSAT_196_Canterbury_2.json"
-#CONFIG="config_MSAT_196_Canterbury_3.json"
-CONFIG="config_MAIR_RF06_Permian.json"
+#CONFIG="config_RF06_Permian.json"
+CONFIG="config_RF08_Uinta.json"
 
 #source ~/.bashrc
 

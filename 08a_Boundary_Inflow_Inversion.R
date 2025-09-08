@@ -37,7 +37,7 @@ command_args <- commandArgs(trailingOnly = T)
 file_config <- command_args[1]
 
 config <- jsonlite::read_json(paste0('configs/', file_config))
-# config <- jsonlite::read_json('configs/config_MSAT_005_Permian.json')
+# config <- jsonlite::read_json('configs/config_RF06_Permian.json')
 
 
 # Set directories 
@@ -47,10 +47,21 @@ output.dir <- paste0(
         config$scene$name, '/'
 )
 
-obs.filepath <- paste0(
-       config$dir_root,
-       config$inputs$l3$dir_l3,
-       config$input$l3$filename_l3
+l3.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
+l3.mosaic.dir <- paste0(
+  config$dir_root,
+  config$inputs$l3_mosaic$dir_l3,
+  config$inputs$l3$filename_l3
+)
+
+l2.dir <- paste0(
+  '/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/Inputs/L2/',
+  config$scene$name
 )
 
 name <- paste0(
@@ -76,7 +87,7 @@ plots.dir <- paste0(
 #        'Inputs/L3_Topography', '/',
 #        config$input$l3$filename_l3
 #)
-topo.filepath <- obs.filepath
+#topo.filepath <- obs.filepath
   # XX 2025_05_10 just using apriori_data/xch4 from the L3 files
 
 # Set the name of the flight
@@ -84,9 +95,31 @@ flight.name <- paste0(
         config$scene$name
 )
 
+
+aspect.ratio.x <- as.numeric(config$scene$plot.xdim)
+aspect.ratio.y <- as.numeric(config$scene$plot.ydim)
+aspect.ratio <- c(aspect.ratio.x, aspect.ratio.y)
+
+
+
 instrument <- config$scene$instrument
 remove.point.sources <- config$scene$remove_point_sources
 epsg_code <- config$scene$epsg_code
+do.clustering <- config$scene$do_clustering
+do.buffering <- config$scene$do_buffering
+
+#if (instrument == 'MSAT'){
+#
+#  path_to_geojson <- paste0(
+#          config$path_to_geojson
+#  )
+#
+#  my_geojson <- st_read(path_to_geojson, crs = "+proj=longlat")
+#
+#}
+
+
+
 
 # Load the ssec color scheme
 source("/n/home03/jbushey/R/ssec.R")
@@ -237,6 +270,75 @@ colnames(hull.coords.df) <- c('lon', 'lat')
 
 
 
+if (instrument == 'MSAT'){
+
+    # doing this process again for the geojson
+    coords2 <- st_coordinates(my_geojson)
+    geojson.coords.df <- as.data.frame(coords2) %>% dplyr::select(X, Y)
+    colnames(geojson.coords.df) <- c('lon', 'lat')
+      # 2025_07_22
+      # previously I just had coords here instead of coords2
+      # which explains why my geojson was not doing anything to crop
+
+    # Plotting the 10km buffer
+    ggplot() +
+    #  geom_line(data = hull.coords.df, mapping = aes(x = lon, y = lat), colour = 'red', lwd = 1) +
+      geom_sf (data = hull_inward_wgs84, colour = 'red', lwd = 1, fill = NA) +
+      geom_sf(data = my_geojson, colour = 'black', lwd = 1, fill = NA) +
+      ggtitle(paste0(name, ' Enhancements\n', 'Mean = ', mean.enhancement, ' ppb')) +
+       theme(plot.title = element_text(hjust = 0.5),
+         axis.text.x = element_text(colour = 'black'),
+         axis.text.y = element_text(colour = 'black')) +
+       labs(x = 'Longitude') +
+       labs(y = 'Latitude') +
+       theme(text = element_text(size = 20, colour = 'black'),
+         axis.text.x = element_text(colour = 'black'),
+         axis.text.y = element_text(colour = 'black')) +
+       theme(panel.border = element_blank(),
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         panel.background = element_blank(),
+         axis.line = element_line(colour = 'black'))
+    ggsave(filename = paste0(plots.dir, paste0(flight.name, '_buffer_region.png')),
+      device = png, width = 8, height = 4, units = "in")
+
+  }
+
+if (instrument == 'MAIR'){
+
+    geojson.coords.df <- NA
+
+    # Plotting the 10km buffer
+    ggplot() +
+    #  geom_line(data = hull.coords.df, mapping = aes(x = lon, y = lat), colour = 'red', lwd = 1) +
+      geom_sf (data = hull_inward_wgs84, colour = 'red', lwd = 1, fill = NA) +
+      ggtitle(paste0(name, ' Enhancements\n', 'Mean = ', mean.enhancement, ' ppb')) +
+       theme(plot.title = element_text(hjust = 0.5),
+         axis.text.x = element_text(colour = 'black'),
+         axis.text.y = element_text(colour = 'black')) +
+       labs(x = 'Longitude') +
+       labs(y = 'Latitude') +
+       theme(text = element_text(size = 20, colour = 'black'),
+         axis.text.x = element_text(colour = 'black'),
+         axis.text.y = element_text(colour = 'black')) +
+       theme(panel.border = element_blank(),
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         panel.background = element_blank(),
+         axis.line = element_line(colour = 'black'))
+    ggsave(filename = paste0(plots.dir, paste0(flight.name, '_buffer_region.png')),
+      device = png, width = 8, height = 4, units = "in")
+
+  }
+
+
+
+
+
+
+
+
+
 # Use the total Jacobian from the compilation script, with the appropriate units
 K <- as.matrix(total.jacobian.ppm.kg.m2.s1) *
   (1 / grid.size.df$area) *  # kg s^(-1)
@@ -333,19 +435,19 @@ K_inflow <- K_inflow[!no.footprint.idx, ]
 
 
 
-if (instrument == 'MSAT'){
+#if (instrument == 'MSAT'){
 
   # XX this portion for the topo correction should be simpler now. It should all come from one file
   # for MSAT, whereas MAIR came from multiple segments
 
   # Set the directory for the L3_Topography
-  setwd(topo.filepath)
+#  setwd(topo.filepath)
 
-  print("Constructing the topographic correction")
-  print(Sys.time())
+#  print("Constructing the topographic correction")
+#  print(Sys.time())
 
   # Find the .nc file in the directory
-  file <- list.files(path = topo.filepath, pattern="(.nc)$")
+#  file <- list.files(path = topo.filepath, pattern="(.nc)$")
 
   # Open the NetCDF file
 #  nc_data <- nc_open(file)
@@ -509,9 +611,9 @@ if (instrument == 'MSAT'){
 
 
 
-}
+#}
 
-if (instrument == 'MAIR'){
+#if (instrument == 'MAIR'){
 
 #  inflow_bg <- config$inversion$background_ppb
 
@@ -538,7 +640,7 @@ if (instrument == 'MAIR'){
 #
 #  inflow_bg <- solve.for.background$minimum
 
-}
+#}
 
 
 
@@ -734,8 +836,8 @@ if (instrument == 'MAIR'){
 # Rather than subtract these values from the data,
 # we're adding them to the background
 
-print("Calculating the priors")
-print(Sys.time())
+#print("Calculating the priors")
+#print(Sys.time())
 
 #inflow_bg <- quantile(plot.df.agg$xch4.corr, 0.25)
 # XX 04/29/2025 - THIS NUMBER CHANGES WHEN YOU AGGREGAE TO 2 KM
@@ -784,7 +886,18 @@ print(Sys.time())
   # we are approximating cosine distance
 
 K_inflow_sum <- sum(K_inflow)
-elimination.threshold <- 0.96 * K_inflow_sum
+
+if (do.clustering == 'yes'){
+  elimination.threshold <- 0.96 * K_inflow_sum
+}
+if (do.clustering == 'no'){
+  # elimination.threshold <- 0.75 * K_inflow_sum
+    # this eliminated far too many emitters
+  elimination.threshold <- 0.96 * K_inflow_sum
+
+}
+
+#elimination.threshold <- 0.96 * K_inflow_sum
 #elimination.threshold <- 0.98 * K_inflow_sum
 #K_inflow_colsums <- as.numeric(colSums(K_inflow))
 #eliminate.idx <- K_inflow_colsums == min(K_inflow_colsums)
@@ -796,29 +909,77 @@ inflow.df.eliminate <- inflow.df
 #K_inflow_eliminate <- K_inflow_eliminate[ , c(c(1:eliminate.idx-1), c((eliminate.idx+1):dim(K_inflow_eliminate)[2]))]
 #inflow.df.eliminate <- inflow.df.eliminate[]
 
+
+
+
+#count <- 1
+#K_inflow_sum_tick <- K_inflow_sum
+#while(K_inflow_sum_tick > elimination.threshold){
+#
+#  K_inflow_eliminate_colsums <- as.numeric(colSums(K_inflow_eliminate))
+#  eliminate.idx <- K_inflow_eliminate_colsums == min(K_inflow_eliminate_colsums)
+#
+#  keep.idx <- !eliminate.idx
+#  K_inflow_eliminate <- K_inflow_eliminate[ , keep.idx]
+#  inflow.df.eliminate <- inflow.df.eliminate[keep.idx, ]
+#
+#  K_inflow_sum_tick <- sum(K_inflow_eliminate)
+#
+#  print(paste0('Iteration: ', count))
+#  print(paste0('Sum K_inflow_eliminate: ', K_inflow_sum_tick))
+#  count <- count + 1
+#}
+#
+#percent.deleted <- as.character(((count / dim(K_inflow)[2])*100)) 
+#print('XXXXXXXXXXXXXXXXXXXX')
+#print('Done eliminating colums with very low values from K_inflow')
+#print(paste0('Deleted ', percent.deleted, '% of columns'))
+#print('XXXXXXXXXXXXXXXXXXXX')
+
+
 count <- 1
 K_inflow_sum_tick <- K_inflow_sum
+
+K_inflow_eliminate_colsums <- as.numeric(colSums(K_inflow_eliminate))
+
+eliminate.idx <- rep(0, ncol(K_inflow_eliminate))
+keep.idx <- !eliminate.idx
+
 while(K_inflow_sum_tick > elimination.threshold){
 
-  K_inflow_eliminate_colsums <- as.numeric(colSums(K_inflow_eliminate))
-  eliminate.idx <- K_inflow_eliminate_colsums == min(K_inflow_eliminate_colsums)
+  # identify the smallest column still being kept, which will be eliminated
+  eliminate.tick <- K_inflow_eliminate_colsums == min(K_inflow_eliminate_colsums[keep.idx])
 
+  # assign that column a value of 1 in the "eliminate index" to make it for elimination
+  eliminate.idx[eliminate.tick] <- 1
   keep.idx <- !eliminate.idx
-  K_inflow_eliminate <- K_inflow_eliminate[ , keep.idx]
-  inflow.df.eliminate <- inflow.df.eliminate[keep.idx, ]
 
-  K_inflow_sum_tick <- sum(K_inflow_eliminate)
+  # take the sum of the colsums to see if enough of the columns have been tagged for elimination
+  K_inflow_sum_tick <- sum(K_inflow_eliminate_colsums[keep.idx])
+    # not sure where there should be NA values in the first place...?
 
   print(paste0('Iteration: ', count))
   print(paste0('Sum K_inflow_eliminate: ', K_inflow_sum_tick))
   count <- count + 1
 }
+K_inflow_eliminate <- K_inflow_eliminate[ , keep.idx]
+inflow.df.eliminate <- inflow.df.eliminate[keep.idx, ]
+#percent.deleted <- as.character(((count / dim(K_inflow)[2])*100))
+percent.deleted <- ((count / dim(K_inflow)[2])*100)
 
-percent.deleted <- as.character(((count / dim(K_inflow)[2])*100)) 
 print('XXXXXXXXXXXXXXXXXXXX')
 print('Done eliminating colums with very low values from K_inflow')
-print(paste0('Deleted ', percent.deleted, '% of columns'))
 print('XXXXXXXXXXXXXXXXXXXX')
+
+
+
+
+percent.deleted <- as.character(percent.deleted)
+print('XXXXXXXXXXXXXXXXXXXX')
+print(paste0('Deleted ', percent.deleted, '% of columns'))
+print(paste0('Columns of K_inflow_eliminate remaining: ', dim(K_inflow_eliminate)[2], ' columns'))
+print('XXXXXXXXXXXXXXXXXXXX')
+
 
 
 rotate <- function(x) t(apply(x, 2, rev))
@@ -828,86 +989,287 @@ K_inflow_norm <- apply(K_inflow_eliminate, 2, function(x) x / sum(x))
 # THIS STEP IS SUSPICIOUS
 K_inflow_rotate <- rotate(K_inflow_norm)
 
-#number.of.clusters <- ceiling(0.10 * dim(K_inflow_eliminate)[2])
 
-if(instrument == 'MAIR'){
-  number.of.clusters <- 100
-}
-if(instrument == 'MSAT'){
-  number.of.clusters <- 200
-  #number.of.clusters <- 100
-  #number.of.clusters <- 50 # 2025_06_07 trying for Canterbury
-}
 
-print('XXXXXXXXXXXXXXXXXXXX')
-print('Begin clustering!')
-print('XXXXXXXXXXXXXXXXXXXX')
 
-print('XXXXXXXXXXXXXXXXXXXX')
-print(paste0('Dim() K_inflow_rotate: ', dim(K_inflow_rotate)))
-print('XXXXXXXXXXXXXXXXXXXX')
 
-# Do the clustering based on the normalized, rotated matrix
-set.seed(123)  # do this for consistent clustering results
-km.out <- kmeans(K_inflow_rotate, centers = number.of.clusters, iter.max = 100, nstart = 20)
-#km.out <- kmeans(K_inflow_rotate, centers = 150, iter.max = 100, nstart = 20)
-#km.out <- kmeans(K_inflow_rotate, centers = 500, iter.max = 100, nstart = 20)
-#kmout <- kmeans(K_inflow_rotate, centers = 1000, iter.max = 100, nstart = 20)
-##km.out <- kmeans(K_inflow_rotate, centers = 300, iter.max = 100, nstart = 20)
-  # I think this one may have failed to converge... would more emitters really be helpful?
-  # would be better to use a more effective covariance structure
 
-col_groups <- km.out$cluster
 
-inflow.df.eliminate$vals <- col_groups
 
-for (i in c(1:number.of.clusters)){
-  # count the number in each cluster
-  cluster.sum <- sum(col_groups == i)
+##number.of.clusters <- ceiling(0.10 * dim(K_inflow_eliminate)[2])
+#
+#if(instrument == 'MAIR'){
+#  number.of.clusters <- 100
+#}
+#if(instrument == 'MSAT'){
+#  number.of.clusters <- 200
+#  #number.of.clusters <- 100
+#  #number.of.clusters <- 50 # 2025_06_07 trying for Canterbury
+#}
+#
+#print('XXXXXXXXXXXXXXXXXXXX')
+#print('Begin clustering!')
+#print('XXXXXXXXXXXXXXXXXXXX')
+#
+#print('XXXXXXXXXXXXXXXXXXXX')
+#print(paste0('Dim() K_inflow_rotate: ', dim(K_inflow_rotate)))
+#print('XXXXXXXXXXXXXXXXXXXX')
+#
+## Do the clustering based on the normalized, rotated matrix
+#set.seed(123)  # do this for consistent clustering results
+#km.out <- kmeans(K_inflow_rotate, centers = number.of.clusters, iter.max = 100, nstart = 20)
+##km.out <- kmeans(K_inflow_rotate, centers = 150, iter.max = 100, nstart = 20)
+##km.out <- kmeans(K_inflow_rotate, centers = 500, iter.max = 100, nstart = 20)
+##kmout <- kmeans(K_inflow_rotate, centers = 1000, iter.max = 100, nstart = 20)
+###km.out <- kmeans(K_inflow_rotate, centers = 300, iter.max = 100, nstart = 20)
+#  # I think this one may have failed to converge... would more emitters really be helpful?
+#  # would be better to use a more effective covariance structure
+#
+#col_groups <- km.out$cluster
+#
+#inflow.df.eliminate$vals <- col_groups
+#
+#for (i in c(1:number.of.clusters)){
+#  # count the number in each cluster
+#  cluster.sum <- sum(col_groups == i)
+#
+#  # if there is only one member of that cluster, find its index
+#  if (cluster.sum == 1){
+#    keep.idx <- col_groups != i
+#    
+#    inflow.df.eliminate <- inflow.df.eliminate[keep.idx, ]
+#    col_groups <- col_groups[keep.idx]
+#    K_inflow_eliminate <- K_inflow_eliminate[ , keep.idx]
+#  }
+#}
 
-  # if there is only one member of that cluster, find its index
-  if (cluster.sum == 1){
-    keep.idx <- col_groups != i
-    
-    inflow.df.eliminate <- inflow.df.eliminate[keep.idx, ]
-    col_groups <- col_groups[keep.idx]
-    K_inflow_eliminate <- K_inflow_eliminate[ , keep.idx]
+
+
+if(do.clustering == 'yes'){
+
+  #number.of.clusters <- ceiling(0.10 * dim(K_inflow_eliminate)[2])
+
+  if(instrument == 'MAIR'){
+    #approx.number.of.clusters <- 100
+      # approx, b/c we will eliminate clusters of size 1
+    #approx.number.of.clusters <- 350
+      # Note: if you have too many emitters, the inflow structure will just look like
+      # "sum over emitters" (is this true?)
+    approx.number.of.clusters <- 50
   }
+  if(instrument == 'MSAT'){
+    #approx.number.of.clusters <- 200
+    approx.number.of.clusters <- 350
+    #approx.number.of.clusters <- 100
+    #approx.number.of.clusters <- 50 # 2025_06_07 trying for Canterbury
+  }
+
+  print('XXXXXXXXXXXXXXXXXXXX')
+  print(paste0('Approx. number of clusters is ', approx.number.of.clusters))
+  print('XXXXXXXXXXXXXXXXXXXX')
+
+  print('XXXXXXXXXXXXXXXXXXXX')
+  print('Begin clustering by approximate cosine distance!')
+  print('XXXXXXXXXXXXXXXXXXXX')
+
+  # Do the clustering based on the normalized, rotated matrix
+  set.seed(123)  # do this for consistent clustering results
+  km.out <- kmeans(K_inflow_rotate, centers = approx.number.of.clusters, iter.max = 100, nstart = 20)
+
+  col_groups <- km.out$cluster
+  group_size <- km.out$size
+
+  inflow.df.eliminate$vals <- col_groups
+
+  # Set the true number of clusters, according to the number found using kmeans
+  true.number.of.clusters <- length(unique(inflow.df.eliminate$vals))
+
+  for (i in c(1:true.number.of.clusters)){
+    # count the number in each cluster
+    cluster.sum <- sum(col_groups == i)
+
+    # if there is only one member of that cluster, find its index
+    if (cluster.sum == 1){
+      keep.idx <- col_groups != i
+
+      inflow.df.eliminate <- inflow.df.eliminate[keep.idx, ]
+      col_groups <- col_groups[keep.idx]
+      #group_size <- group_size[keep.idx]
+        # Note: introduces NA's because length(keep.idx) > length(group_size)
+      K_inflow_eliminate <- K_inflow_eliminate[ , keep.idx]
+    }
+  }
+
+  # Remove groups of size 1 from group size variable
+  group_size <- group_size[group_size > 1]
+
+  # Update the true number of clusters, after eliminating clusters of size 1
+  true.number.of.clusters <- length(unique(inflow.df.eliminate$vals))
+    # for a small number of clusters like 100, you usually won't get stuck with 
+    # clusters of size 1. So this is usually redundant. But on that off chance
+    # this avoids errors.
+
+  print('XXXXXXXXXXXXXXXXXXXX')
+  print(paste0('True number of clusters is ', true.number.of.clusters))
+  print('XXXXXXXXXXXXXXXXXXXX')
+
+}
+if(do.clustering == 'no'){
+  col_groups <- NA
+  km.out <- NA
+  group_size <- NA
+  approx.number.of.clusters <- dim(K_inflow_eliminate)[2]
+  true.number.of.clusters <- approx.number.of.clusters
+  # approx.number.of.clusters <- NA
+  # true.number.of.clusters <- NA
 }
 
-print('XXXXXXXXXXXXXXXXXXXX')
-print('Generate K_inflow_small based on the clusters')
-print('XXXXXXXXXXXXXXXXXXXX')
+# Get the order from the dataframe
+# this step will need to happen whether or not there is clustering (2025_07_31)
+# actually not true, if there are no clusters they canjust stay in their original lat/lon order
+# because the vals all equal zero, there is no harm in doing this step though.
+sorted_order <- order(inflow.df.eliminate$vals) # Sort by group and then by value
 
-# But apply the clustering to the non-normalized, non-rotated matrix
-#mat <- K_inflow
-mat <- K_inflow_eliminate
-#K_inflow_small <- sapply(split(seq_along(col_groups), col_groups), function(cols) rowSums(as.matrix(mat[,cols])))
-#K_inflow_small <- sapply(split(seq_along(col_groups), col_groups), function(cols) rowSums(as.matrix(mat[,cols])/sum(cols)))
-K_inflow_small <- sapply(split(seq_along(col_groups), col_groups), function(cols) rowSums(as.matrix(mat[,cols])/dim(mat[,cols])[2]))
-  # Note: this is an average rather than a sum, requires Jacobian units of kg / hr or comparable
-  # will throw an error if there are too many clusters, resulting in clusters of 1
-    # fixed this error by eliminating clusters of only 1
+# Rearrange the Jacobian matrix according to the grouping of the dataframe
+K_inflow_eliminate_sorted <- K_inflow_eliminate[ , sorted_order]
+
+# Sort by clustered_group_number
+inflow.df.eliminate <- inflow.df.eliminate %>%
+  dplyr::arrange(vals)
 
 
-# TEST PLOT
-#inflow.df <- inflow.df %>% dplyr::mutate(col_gruops = col_groups)
-#ggplot(data = inflow.df) + geom_raster(mapping = aes(x = lon, y = lat, fill = col_groups))
-#ggsave(file = '2025_05_21_groups.png', device = png, width = 8, height = 8, units = "in")
+# THINKING MY PROBLEM IS THAT COL_GROUPS DID NOT GET SORTED
+# USE K_INFLOW_ELIMINATE$VALS, WHICH HAS NOW BEEN SORTED, INSTEAD
 
-#ggplot() + 
-#  geom_raster(data = emitters.df, mapping = aes(x = lon, y = lat, fill = footprint)) +
+
+
+
+
+
+
+
+
+#print('XXXXXXXXXXXXXXXXXXXX')
+#print('Generate K_inflow_small based on the clusters')
+#print('XXXXXXXXXXXXXXXXXXXX')
+#
+## But apply the clustering to the non-normalized, non-rotated matrix
+##mat <- K_inflow
+#mat <- K_inflow_eliminate
+##K_inflow_small <- sapply(split(seq_along(col_groups), col_groups), function(cols) rowSums(as.matrix(mat[,cols])))
+##K_inflow_small <- sapply(split(seq_along(col_groups), col_groups), function(cols) rowSums(as.matrix(mat[,cols])/sum(cols)))
+#K_inflow_small <- sapply(split(seq_along(col_groups), col_groups), function(cols) rowSums(as.matrix(mat[,cols])/dim(mat[,cols])[2]))
+#  # Note: this is an average rather than a sum, requires Jacobian units of kg / hr or comparable
+#  # will throw an error if there are too many clusters, resulting in clusters of 1
+#    # fixed this error by eliminating clusters of only 1
+#
+#
+## TEST PLOT
+##inflow.df <- inflow.df %>% dplyr::mutate(col_gruops = col_groups)
+##ggplot(data = inflow.df) + geom_raster(mapping = aes(x = lon, y = lat, fill = col_groups))
+##ggsave(file = '2025_05_21_groups.png', device = png, width = 8, height = 8, units = "in")
+#
+##ggplot() + 
+##  geom_raster(data = emitters.df, mapping = aes(x = lon, y = lat, fill = footprint)) +
 #  geom_point(data = domain.df, mapping = aes(x = lon, y = lat), colour = 'red')
+#
+#
+#K_total <- cbind(K_domain, K_inflow_small)
+#  
+#  # more clusters = better condition number for K_total?
+#  # best condition number is actually when I don't cluster anything at all?
+#  # but then there is trouble with the computational tractability of the problem
+#
+#  # ChatGPT says that if you compute the Jacobian numerically, small step sizes can cause instability
+#  # Is there something I need to change in FLEXPART?
 
 
-K_total <- cbind(K_domain, K_inflow_small)
-  
-  # more clusters = better condition number for K_total?
-  # best condition number is actually when I don't cluster anything at all?
-  # but then there is trouble with the computational tractability of the problem
 
-  # ChatGPT says that if you compute the Jacobian numerically, small step sizes can cause instability
-  # Is there something I need to change in FLEXPART?
+if (do.clustering == 'yes'){
+
+  print('XXXXXXXXXXXXXXXXXXXX')
+  print('Generate K_inflow_small based on the clusters')
+  print('XXXXXXXXXXXXXXXXXXXX')
+
+  # But apply the clustering to the non-normalized, non-rotated matrix
+  mat <- K_inflow_eliminate_sorted
+
+  # IF AVERAGING
+  #K_inflow_small <- sapply(
+  #  split(
+  #    seq_along(inflow.df.eliminate$vals), 
+  #    inflow.df.eliminate$vals
+  #  ), 
+  #  function(cols) rowSums(as.matrix(mat[,cols])/dim(mat[,cols])[2])
+  #)
+    # Note: this is an average rather than a sum, requires Jacobian units of kg / hr or comparable
+    # will throw an error if there are too many clusters, resulting in clusters of 1
+      # fixed this error by eliminating clusters of only 1
+  # SHOULD I BE DIVIDING INSIDE OR OUTSIDE OF THE PARENTHESES?
+  # I think by order of operations here it shouldn't matter
+
+  # TESTING WHAT'S WRONG WITH SUMMING?
+  # IF SUMMING
+  K_inflow_small <- sapply(
+    split(
+      seq_along(inflow.df.eliminate$vals),
+      inflow.df.eliminate$vals
+    ),
+    function(cols) rowSums(as.matrix(mat[,cols]))
+  )
+
+  # TEST PLOT
+  #inflow.df <- inflow.df %>% dplyr::mutate(col_gruops = col_groups)
+  #ggplot(data = inflow.df) + geom_raster(mapping = aes(x = lon, y = lat, fill = col_groups))
+  #ggsave(file = '2025_05_21_groups.png', device = png, width = 8, height = 8, units = "in")
+
+  #ggplot() + 
+  #  geom_raster(data = emitters.df, mapping = aes(x = lon, y = lat, fill = footprint)) +
+  #  geom_point(data = domain.df, mapping = aes(x = lon, y = lat), colour = 'red')
+
+
+  K_total <- cbind(K_domain, K_inflow_small)
+
+}
+if (do.clustering == 'no'){
+  K_inflow_small <- K_inflow_eliminate_sorted
+  K_total <- cbind(K_domain, K_inflow_eliminate_sorted)
+
+
+  inflow.df.eliminate <- inflow.df.eliminate %>%
+    dplyr::mutate(vals = colSums(K_inflow_eliminate_sorted))
+
+  # Plotting the clusters
+  ggplot() +
+    geom_raster(data = inflow.df.eliminate, mapping = aes(x = lon,y = lat, fill = vals)) +
+    scale_fill_viridis(option = 'C',
+      limits = c(quantile(inflow.df.eliminate$vals, 0.01), quantile(inflow.df.eliminate$vals, 0.99)),
+      name = 'ppm / (kg/hr)') +
+    ggtitle(paste0(name, ' Inflow Region')) +
+     theme(plot.title = element_text(hjust = 0.5),
+       axis.text.x = element_text(colour = 'black'),
+       axis.text.y = element_text(colour = 'black')) +
+     labs(x = 'Longitude') +
+     labs(y = 'Latitude') +
+     theme(text = element_text(size = 20, colour = 'black'),
+       axis.text.x = element_text(colour = 'black'),
+       axis.text.y = element_text(colour = 'black')) +
+     theme(panel.border = element_blank(),
+       panel.grid.major = element_blank(),
+       panel.grid.minor = element_blank(),
+       panel.background = element_blank(),
+       axis.line = element_line(colour = 'black'))
+  ggsave(filename = paste0(plots.dir, paste0(flight.name, '_inflow_region.png')),
+    device = png, width = 8, height = 4, units = "in")
+
+
+}
+
+
+
+
+
+
 
 
 
@@ -997,32 +1359,41 @@ print(Sys.time())
 #  )
 
 setwd(output.dir)
-  save(
-    og.emitters.df,
-    emitters.df,
-    inflow.df,
-    inflow.idx,
-    domain.df,
-    domain.idx,
-    no.footprint.idx,
-#    most.important.idx,
-#    most.important.df,
-#    inflow_bg,
-    K,
-    K_domain,
-    K_inflow,
-    K_inflow_small,
-    K_inflow_eliminate,
-    col_groups,
-    inflow.df.eliminate,
-    K_total,
-    plot.df.agg, # now with diff (topo correction) and xch4.corr
-    #inflow.obs.df,
-    #slope, 
-    #intercept, 
-    hull.coords.df,
-    file = paste0('08_', flight.name, '_Boundary_Inflow_Inversion.RData')
-  )
+save(
+  og.emitters.df,
+  emitters.df,
+  inflow.df,
+  inflow.idx,
+  domain.df,
+  domain.idx,
+  no.footprint.idx,
+#  most.important.idx,
+#  most.important.df,
+#  inflow_bg,
+  K,
+  K_domain,
+  K_inflow,
+  K_inflow_small,
+  K_inflow_eliminate,
+  K_inflow_eliminate_sorted,
+  col_groups,
+  approx.number.of.clusters,
+  true.number.of.clusters,
+  inflow.df.eliminate,
+  K_total,
+  plot.df.agg, # now with diff (topo correction) and xch4.corr
+  #inflow.obs.df,
+  #slope, 
+  #intercept, 
+  hull.coords.df,
+  hull_inward_wgs84,
+  geojson.coords.df,
+  percent.deleted,
+  km.out,
+  group_size,
+  file = paste0('08_', flight.name, '_Boundary_Inflow_Inversion.RData')
+)
+
 
 # Note on 2025_05_21
 # trouble with inversion was that Jacobian was built wrong
@@ -1043,11 +1414,50 @@ setwd(output.dir)
 # Cluster using k means with normalized columns of the Jacobian
 # normalizing the Euclidean distance of a normalized vector approximates the cosine distance
 
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 print('The boundary inflow inversion has successfully completed!')
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
 #}else{
 #  print("Error: FLEXPART output does not match emitter grid!!!")
 #}
+
+
+
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+print("Making some sanity check plots to make sure the clusters good")
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+if (do.clustering == 'yes'){
+
+  ggplot() +
+    geom_raster(data = inflow.df.eliminate, mapping = aes(x = lon, y = lat, fill = vals)) +
+    scale_fill_viridis(
+      option = 'C',
+      name = 'Cluster'
+    ) +
+    ggtitle(paste0(name, '\nBoundary Inflow Clusters')) +
+    theme(plot.title = element_text(hjust = 0.5),
+      axis.text.x = element_text(colour = 'black'),
+      axis.text.y = element_text(colour = 'black')) +
+    labs(x = 'Longitude') +
+    labs(y = 'Latitude') +
+    theme(text = element_text(size = 20, colour = 'black'),
+      axis.text.x = element_text(colour = 'black'),
+      axis.text.y = element_text(colour = 'black')) +
+    theme(panel.border = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      axis.line = element_line(colour = 'black'))
+  ggsave(
+    filename = paste0(plots.dir, paste0(name, '_sanity_check_clusters_by_group.png')),
+    device = png,
+    width = aspect.ratio[1],
+    height = aspect.ratio[2],
+    units = "in"
+  )
+}
 
 
 
