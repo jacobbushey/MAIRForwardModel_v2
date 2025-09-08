@@ -1,0 +1,128 @@
+{
+  "dir_root": "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/",
+  "dir_scratch": "/n/netscratch/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/",
+  "dir_branch": "/n/holylfs04/LABS/wofsy_lab/Lab/MethaneAIR_Forward_Model_v2/",
+  "scene": {
+    "name": "RF06_Permian",
+    "region": "Permian",
+    "instrument": "MAIR",
+    "type": "O&G",
+    "remove_point_sources": "no",
+    "do_clustering": "yes",
+    "do_buffering": "no",
+    "epsg_code": 3081,
+    "bg_offset": "NA",
+    "plot.xdim": 8,
+    "plot.ydim": 8
+  },
+  "flexpart": {
+    "dir_flexpart": "flexpart/",
+    "dir_wd": "examples/",
+    "dir_out": "out/",
+    "receptor_block_size": "NA",
+    "n_receptor_blocks": "NA",
+    "column_block_size": "NA",
+    "n_column_blocks": "NA",
+    "start_date": "20210805",
+    "start_time": "070000",
+    "end_date": "20210806",
+    "end_time": "190000",
+    "n_hours": 36,
+    "numpar": 10000,
+    "n_cores": "NA",
+    "n_nodes": "NA",
+    "lon_range": "NA",
+    "lat_range": "NA",
+    "grid_size": 25,
+    "mass": 1000000,
+    "max_dist": 40,
+    "inflow_dist": 10
+  },
+  "inversion": {
+    "res_deg": 0.02,
+    "domain_km2": "NA",
+    "background_ppb": 1892.898,
+    "sigr": 0.03,
+    "sigq": 0.0012800000000000001,
+    "l_R": 10,
+    "l_Q": 22.300000000000001
+  },
+  "inputs": {
+    "avionics": {
+      "dir_avionics": "Inputs/Avionics/"
+    },
+    "l3": {
+      "dir_l3": "Inputs/L3/",
+      "filename_l3": "RF06_Permian",
+      "aggregation": 100,
+      "valid_fraction": 0.5
+    },
+    "l3_mosaic": {
+      "dir_l3": "Inputs/L3_Mosaic/",
+      "aggregation": 10
+    },
+    "prior_emissions": {
+      "dir_prior_emissions": "NA",
+      "file_prior_emissions": "NA"
+    },
+    "infrastructure": {
+      "dir_infrastructure": "Inputs/Prior/OGIM/",
+      "file_infrastructure": "Oil_and_Natural_Gas_Wells.tif"
+    },
+    "point_sources": {
+      "dir_point_sources": "Inputs/L4_DI/"
+    },
+    "meteorology": {
+      "HRRR": {
+        "dir_ARL": "Inputs/Meteorology/HRRR/ARL/",
+        "dir_NetCDF": "Inputs/Meteorology/HRRR/NetCDF/",
+        "vars_surface": [
+          "SHGT",
+          "T02M",
+          "U10M",
+          "V10M",
+          "PRSS",
+          "PBLH",
+          "TCLD"
+        ],
+        "vars_upper": [
+          "TEMP",
+          "UWND",
+          "VWND",
+          "WWND",
+          "DIFW",
+          "SPHU",
+          "TKEN",
+          "PRES",
+          "WVMR",
+          "HGHT"
+        ]
+      },
+      "GFS": {
+        "dir_ARL": "Inputs/Meteorology/GFS/ARL/",
+        "dir_NetCDF": "Inputs/Meteorology/GFS/NetCDF/",
+        "vars_surface": [
+          "PRSS",
+          "U10M",
+          "V10M",
+          "TCLD",
+          "PBLH",
+          "SHGT"
+        ],
+        "vars_upper": [
+          "TEMP",
+          "RELH",
+          "PRES",
+          "WVMR",
+          "HGHT"
+        ]
+      }
+    }
+  },
+  "output": "Output/",
+  "plots": "Plots/",
+  "intermediates": {
+    "dir_emitters": "Emitters/",
+    "dir_jacobian": "Intermediates/Jacobian/"
+  }
+}
